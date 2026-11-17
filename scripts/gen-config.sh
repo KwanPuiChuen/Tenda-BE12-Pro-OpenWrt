@@ -137,16 +137,16 @@ fi
 # ---- 诊断：关键包符号可见性（Run #35 加，用于定位 zerotier 被丢弃的根因）----
 echo "▸ [诊断] zerotier 依赖符号可见性"
 if [ -f tmp/.config-package.in ]; then
-  echo "  ── tmp/.config-package.in 里 PACKAGE_zerotier 定义 ──"
-  awk '/^config PACKAGE_zerotier$/,/^$/' tmp/.config-package.in | sed 's/^/     /' | head -40
-  echo "  ── recursive dependency 上下文（weechat）──"
-  sed -n '40645,40672p' tmp/.config-package.in | sed 's/^/     /'
+  echo "  ── grep PACKAGE_zerotier ──"
+  grep -n "PACKAGE_zerotier" tmp/.config-package.in | head -5 | sed 's/^/     /' || echo "     <未找到 PACKAGE_zerotier>"
+  echo "  ── PACKAGE_zerotier 段落 ──"
+  grep -n -A12 "config PACKAGE_zerotier" tmp/.config-package.in | head -16 | sed 's/^/     /'
+  echo "  ── 依赖符号定义计数 ──"
+  for s in libminiupnpc libnatpmp libatomic kmod-tun ip libstdcpp libpthread; do
+    c="$(grep -c "config PACKAGE_${s}$" tmp/.config-package.in || true)"
+    echo "     PACKAGE_${s} 定义数=${c:-0}"
+  done
 fi
-for s in PACKAGE_zerotier PACKAGE_libminiupnpc PACKAGE_libnatpmp PACKAGE_libatomic \
-         PACKAGE_kmod-tun PACKAGE_ip PACKAGE_libstdcpp PACKAGE_libpthread; do
-  st="$(./scripts/config --state "$s" 2>/dev/null || echo 'ERR')"
-  printf "  %-28s = %s\n" "$s" "$st"
-done
 
 # ---- 回读校验 ---------------------------------------------------------------
 # ⚠️ 这里**不能**检查 .config 里的 CONFIG_VERSION_CODE —— 走 REVISION 路线
