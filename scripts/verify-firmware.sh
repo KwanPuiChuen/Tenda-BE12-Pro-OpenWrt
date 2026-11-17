@@ -174,8 +174,10 @@ else
     bad_ "openwrt_version 里没有 $REVISION（内容: $(cat "$VERF" 2>/dev/null)）"
   fi
   # 反向：不能只剩光秃秃的 git revision，说明 REVISION 没注入成功
-  if grep -qE "DISTRIB_DESCRIPTION='[^']*SNAPSHOT r[0-9]+-[0-9a-f]+'$" "$REL" 2>/dev/null; then
-    bad_ "版本串只有上游 revision，没有我们的时间戳 —— 版本注入失败"
+  # 25.12.6 的 DISTRIB_DESCRIPTION 形如 "OpenWrt 25.12.6 r12345-abc1234"，
+  # 正常应该还带我们的时间戳（build_version 里拼的 YYYYMMDD.HHMM）。
+  if [ -f "$REL" ] && ! grep -qE "OpenWrt 25\.12\.6 .*[0-9]{8}\.[0-9]{4}" "$REL" 2>/dev/null; then
+    bad_ "版本串不是「OpenWrt 25.12.6 + 时间戳」—— 基线或版本注入不对（内容: $(grep DISTRIB_DESCRIPTION "$REL" 2>/dev/null | head -1)）"
   fi
   # 文件名前后缀不能撞车：IMG_PREFIX_VERCODE 生效时文件里会出现两段日期
   if grep -qE "[0-9]{8}\.[0-9]{4}-.*-[0-9]{8}\.[0-9]{4}" "$REL" 2>/dev/null; then

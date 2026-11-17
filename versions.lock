@@ -1,57 +1,64 @@
 # ============================================================================
-# 版本锁定 — Tenda BE12 Pro / ImmortalWrt 25.12 分支
+# 版本锁定 — Tenda BE12 Pro / OpenWrt 25.12.6
 # -----------------------------------------------------------------------------
-# ⚠️ 本文件属于 immortalwrt-25.12 分支，与 main 分支**不是同一套源**。
-#    main 分支编 OpenWrt mainline SNAPSHOT（内核 6.18），那个分支才是日常用的。
-#    切分支时别把两个 versions.lock 搞混。
+# 唯一基线：**OpenWrt 官方 releases/25.12.6**（tag v25.12.6，内核 6.12）。
+#   本仓库只有这一条产线：能刷的固件就是 25.12.6 编出来的这一份。
+#   SNAPSHOT（main 分支，内核 6.18）已整体移除 —— 不再构建、不再保留产物。
 #
-# 为什么单独开一个分支编 ImmortalWrt：
-#   main 走 OpenWrt SNAPSHOT，滚动更新、内核 6.18，固件里 LuCI 跑的是 master
-#   （坑 11 的主题兼容性问题就是从这来的）。
-#   这个分支走 ImmortalWrt openwrt-25.12 —— **固定稳定版、内核 6.12**，
-#   软件源和插件生态都是国内调校过的，换来的是可复现 + 稳。
-#
-# 代价：ImmortalWrt 25.12 **没有这块板子**，需要自己移植（见下）。
+# 为什么锁 tag 而不是分支：
+#   openwrt-25.12 分支会继续吃 25.12.7 及以后的修复，锁分支名等于构建输入漂移。
+#   锁 tag → commit，保证任何时候 clone 出来的构建输入逐字节一致。
 # ============================================================================
 
-# ---- 基线：ImmortalWrt 25.12 ------------------------------------------------
-# 实测（2026-10-03）：filogic.mk 里 tenda_be12-pro 出现 **0 次**，
-# 190 个 filogic 设备。但 MT7987 SoC 本身是支持的（bpi-r4-lite /
-# mt7987a-rfb / routerich_be7200 等），所以缺的只是「这台机器的描述」。
-OPENWRT_REPO=https://github.com/immortalwrt/immortalwrt.git
+# ---- 基线：OpenWrt v25.12.6 ------------------------------------------------
+# 实测（2026-11-17）：v25.12.6 的 filogic.mk 里 **仍没有** tenda_be12-pro
+#   （grep tenda 零命中，dts 目录 404），板子目前只在 main 分支里。
+#   所以板级移植三件套必须继续带着，不能「等官方收编后删 patches」。
+#
+# 好消息：25.12.6 的 6.12 内核已经把这块板子要的底层能力全 backport 齐了：
+#   target/linux/mediatek/patches-6.12/737-net-dsa-add-Airoha-AN8855.patch
+#   target/linux/mediatek/patches-6.12/752-net-phy-mediatek-i2p5g-add-support-for-mt7987.patch
+#   filogic/config-6.12 里 CONFIG_NET_DSA_AN8855 / MFD_AIROHA_AN8855 /
+#   NVMEM_AN8855_EFUSE / AIR_AN8855_PHY / MDIO_AN8855 全部 =y。
+#   DTS 引用的 32 个 label 在 v25.12.6 的 mt7987a.dtsi / mt7987.dtsi 中全部存在。
+#   DEVICE_PACKAGES 的四个包也都存在（mt7987-2p5g-phy-firmware /
+#   airoha-en8811h-firmware / kmod-phy-airoha-en8811h / kmod-mt7992-firmware）。
+OPENWRT_REPO=https://github.com/openwrt/openwrt.git
 OPENWRT_BRANCH=openwrt-25.12
-# ⚠️ 25.12 是稳定发布，**必须锁到具体 SHA**。锁到分支名的话上游一打 tag
-#    你的构建内容就变了，故障无法复现。
-OPENWRT_COMMIT=313718c25f206cdeee399bdc6c002b7388c9a513
+OPENWRT_TAG=v25.12.6
+# tag 是 annotated tag，下面是解引用后的 commit（tag object 22dd0e28...）
+OPENWRT_COMMIT=64900e756efa667774214f9c6b17c113222e01f7
 
 # ---- feeds ------------------------------------------------------------------
-# ⚠️ ImmortalWrt 用自己的 luci / packages 分支（openwrt-25.12），
-#    **不能**混用 openwrt/luci master —— 那是给 SNAPSHOT 用的，API 不兼容。
-#    这也是 main 分支和本分支最大的差异之一。
-LUCI_REPO=https://github.com/immortalwrt/luci.git
+# ⚠️ 必须是 openwrt/luci 与 openwrt/packages 的 **openwrt-25.12** 分支，
+#    不能混 master（那是 SNAPSHOT 的 API，和 25.12 不兼容）。
+#    这两个 feed 仓库没有 v25.12.6 同名 tag，因此锁分支当前 HEAD 的 SHA；
+#    要复现 25.12.6 那一版就把下面两个 SHA 当成唯一真相，别改成分支名。
+LUCI_REPO=https://github.com/openwrt/luci.git
 LUCI_BRANCH=openwrt-25.12
-LUCI_COMMIT=d6167ea0645cbd1327708d85f94824f42d0eb872
+LUCI_COMMIT=53312862521a4b02d7e45ae483537132dbcf63ad
 
-PACKAGES_REPO=https://github.com/immortalwrt/packages.git
+PACKAGES_REPO=https://github.com/openwrt/packages.git
 PACKAGES_BRANCH=openwrt-25.12
-PACKAGES_COMMIT=84bd86384928955b568988ca0e09e2c78c75173d
+PACKAGES_COMMIT=d0c8b47342d482de8ec0584a8af4f0d4a1fe36de
 
-# ---- 板级移植（25.12 独有）------------------------------------------------
-# 三件套，从 openwrt/openwrt main 抄过来，合计约 410 行：
-#   1) patches/immortalwrt-25.12/mt7987a-tenda-be12-pro.dts   设备树 390 行
-#   2) patches/immortalwrt-25.12/board-port.mk 里的 Build/tenda-mkdualimageheader
+# ---- 板级移植（25.12.6 仍需自带）------------------------------------------
+# 三件套，取自 openwrt/openwrt main（板子只在 main 里），合计约 442 行：
+#   1) patches/openwrt-25.12/mt7987a-tenda-be12-pro.dts   设备树 390 行
+#      —— 与 main 分支 2026-11-17 版本逐字节一致（diff 为空）
+#   2) patches/openwrt-25.12/board-port.mk 里的 Build/tenda-mkdualimageheader
 #      —— 原厂私有镜像头（"God1" 魔数 + gzip CRC），**没有它 bootloader 不认镜像**
-#   3) 同文件里的 Device/tenda_be12-pro —— 14 行板子定义
+#   3) 同文件里的 Device/tenda_be12-pro —— 板级定义
 # 由 scripts/apply-board-port.sh 在克隆源码后自动追加，幂等。
 #
-# ⚠️ 最大风险：ImmortalWrt 25.12 是 **内核 6.12**，主线是 6.18。
-#    DTS 用到的较新 binding（airoha,an8855-ext-surge、MT76 的 band@0/band@1
-#    节点写法）6.12 未必认。构建失败时先看 dtc 报的是哪个属性。
+# 版本差异核对（已完成，2026-11-17）：
+#   · 内核 6.12 vs 6.18：DTS 用到的 an8855 全家桶、mt7987 i2p5g phy
+#     在 25.12.6 都有 backport patch，config 已 =y，不存在「dtc 过、驱动缺」。
+#   · band@0/band@1 由板级 DTS 自己定义，与 dtsi 不冲突。
+#   · mt7992 固件包在 25.12.6 的 package/kernel/mt76/Makefile 里有定义。
 #
-# ⚠️ 设备树作者是 X-Wrt 的 Developer X，板子 2026-03-09 之后才合入主线，
-#    24.10 和 25.12.0~.3 全部没有。等官方把板子收进 ImmortalWrt 下一个稳定版，
-#    就可以把整个 patches/ 目录删掉、改回直接选设备。
-
+# 等官方把板子收进 25.12.x 稳定版后，才可以把整个 patches/ 目录删掉、
+# 改回直接选设备。届时先 grep filogic.mk 确认，别凭印象删。
 # ---- LuCI 主题 --------------------------------------------------------------
 # 三个主题**都不走 feeds**，统一由 scripts/fetch-extra-packages.sh 挂到 package/。
 # 原因：include/scan.mk 用 find -L feeds/<名字> -mindepth 1 -name Makefile 扫描，
@@ -60,9 +67,9 @@ PACKAGES_COMMIT=84bd86384928955b568988ca0e09e2c78c75173d
 # 且**静默失败、不报错**：.config 里压根没有符号，编译一路绿灯，固件里没主题。
 # （Run #5 栽在这个坑上。详见 scripts/fetch-extra-packages.sh 头部注释。）
 #
-# 注：ImmortalWrt 自己的 luci feed 里其实有 luci-theme-argon 和
-# luci-theme-bootstrap（Makefile 在 themes/ 下，feeds 能扫到）。
-# 这里仍走 package/ 挂载，是为了和 main 分支保持同一套代码、少一处差异。
+# 注：OpenWrt 自己的 luci feed 里其实有 luci-theme-bootstrap
+# （Makefile 在 themes/ 下，feeds 能扫到），argon/aurora 则不在官方 feed 里。
+# 这里三个主题统一走 package/ 挂载，路径与扫描规则一致，行为可预测。
 PKG_NAME_THEME_ARGON=luci-theme-argon
 THEME_ARGON_REPO=https://github.com/jerrykuku/luci-theme-argon.git
 THEME_ARGON_BRANCH=master
@@ -73,7 +80,7 @@ ARGON_CFG_REPO=https://github.com/jerrykuku/luci-app-argon-config.git
 ARGON_CFG_BRANCH=master
 ARGON_CFG_COMMIT=3e099a37c3f71d0de677f1b6b0f4bffd57d91dac
 
-# aurora（eamonxg）是第三方，**ImmortalWrt feeds 里没有**，必须外部挂载。
+# aurora（eamonxg）是第三方，**OpenWrt feeds 里没有**，必须外部挂载。
 # ⚠️ 已知风险：锁的这个 commit 是给 **LuCI master**（SNAPSHOT）编的，
 #    25.12 是稳定版、LuCI API 可能有出入，aurora 未必渲染得出来。
 #    症状和坑 11 一样：主题装上了但界面花掉 / 下拉框空。

@@ -51,7 +51,7 @@ fi
 #         "# configuration written to .config"，一切看着正常。
 #   （Run #21 打印出来的 .config 实际内容就只有那一行 is not set。）
 #
-# ImmortalWrt 25.12 的 include/toplevel.mk 顶层（MAKELEVEL=0）无条件执行：
+# OpenWrt 25.12.6 的 include/toplevel.mk 顶层（MAKELEVEL=0）无条件执行：
 #     REVISION:=$(shell $(TOPDIR)/scripts/getver.sh)
 # 而 makefile 里的赋值会覆盖**环境变量**。Run #33 实测：CI 的 env 里明明有
 # REVISION=git-313718c25f-20261017.1013，固件仍是 r0+38202-313718c25f。
@@ -76,7 +76,7 @@ fi
 export REVISION="${REVISION:-$TENDA_BUILD_VERSION}"
 echo "▸ 版本标识（最终由 make 命令行变量注入）"
 echo "  REVISION = $REVISION"
-echo "  LuCI 系统页会显示: OpenWrt SNAPSHOT $REVISION"
+echo "  LuCI 系统页会显示: OpenWrt 25.12.6 $REVISION"
 
 # 保险：万一将来有人打开了 VERSIONOPT，CONFIG_VERSION_CODE_FILENAMES 的
 # Kconfig 默认 y 会给 .bin 加**前缀**，和 stamp-firmware.sh 的**后缀**撞车。

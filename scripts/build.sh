@@ -33,7 +33,7 @@ if [ -z "${TENDA_BUILD_STAMP:-}" ]; then
   [ -n "${TENDA_BUILD_STAMP:-}" ] || { echo "❌ 算不出北京时间戳"; exit 1; }
 fi
 export TENDA_BUILD_STAMP
-# ⚠️ ImmortalWrt 25.12 的 toplevel.mk 在顶层无条件执行
+# ⚠️ OpenWrt 25.12.6 的 toplevel.mk 在顶层无条件执行
 #      REVISION:=$(shell scripts/getver.sh)
 #    环境变量会被覆盖；命令行 REVISION 又会污染 base-files 的包版本
 #    （1954~$(REVISION 最后一个 - 段)），带点的时间戳会让 apk 拒包。
@@ -96,10 +96,10 @@ ok "feeds.conf 就绪（全部锁定 commit）"
 
 # ---- 1.5 板级移植 -----------------------------------------------------------
 # ⛔ 这一步是本分支存在的全部意义。
-# ImmortalWrt openwrt-25.12 **没有** Tenda BE12 Pro 这个板子
+# OpenWrt openwrt-25.12 **没有** Tenda BE12 Pro 这个板子
 # （实测 filogic.mk 里 0 次提及），必须把设备树、板子定义和
 # 原厂私有镜像头脚本补进去，否则 make menuconfig 里根本选不到这台设备。
-# 详见 patches/immortalwrt-25.12/board-port.mk 头部说明。
+# 详见 patches/openwrt-25.12/board-port.mk 头部说明。
 # 幂等，可重复执行。
 step "板级移植（设备树 + 板子定义 + 镜像头）"
 "$ROOT/scripts/apply-board-port.sh" "$SRC" || die "板级移植失败"

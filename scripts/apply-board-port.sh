@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# apply-board-port.sh — 把 Tenda BE12 Pro 移植进 ImmortalWrt 25.12 源码树
+# apply-board-port.sh — 把 Tenda BE12 Pro 移植进 OpenWrt 25.12.6 源码树
 # -----------------------------------------------------------------------------
 # 用法： ./scripts/apply-board-port.sh [源码目录]
 #        源码目录默认 $ROOT/openwrt
@@ -20,7 +20,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="${1:-$ROOT/openwrt}"
-PATCH_DIR="$ROOT/patches/immortalwrt-25.12"
+PATCH_DIR="$ROOT/patches/openwrt-25.12"
 
 DTS_NAME="mt7987a-tenda-be12-pro.dts"
 DTS_DST="$SRC/target/linux/mediatek/dts/$DTS_NAME"
@@ -36,10 +36,10 @@ step() { echo; echo "${CYN}▸ $*${RST}"; }
 # ---- 0. 前置检查 -------------------------------------------------------------
 step "前置检查"
 [ -d "$SRC" ] || die "源码目录不存在: $SRC（先跑 gen-feeds.sh 克隆源码）"
-[ -f "$FLMK" ] || die "找不到 $FLMK —— 这不像一个 OpenWrt/ImmortalWrt 源码树"
+[ -f "$FLMK" ] || die "找不到 $FLMK —— 这不像一个 OpenWrt 源码树"
 [ -d "$SRC/target/linux/mediatek/dts" ] || die "找不到 target/linux/mediatek/dts 目录"
-[ -f "$PATCH_DIR/$DTS_NAME" ] || die "缺少移植文件 patches/immortalwrt-25.12/$DTS_NAME"
-[ -f "$PATCH_DIR/board-port.mk" ] || die "缺少移植文件 patches/immortalwrt-25.12/board-port.mk"
+[ -f "$PATCH_DIR/$DTS_NAME" ] || die "缺少移植文件 patches/openwrt-25.12/$DTS_NAME"
+[ -f "$PATCH_DIR/board-port.mk" ] || die "缺少移植文件 patches/openwrt-25.12/board-port.mk"
 ok "源码树与移植文件齐备"
 
 # ---- 1. 设备树 ---------------------------------------------------------------
@@ -67,7 +67,7 @@ else
     echo ""
     echo "$MARKER"
     echo "# 由 $0 追加，请勿手工编辑。删除后重跑本脚本即可恢复。"
-    echo "# 详见 patches/immortalwrt-25.12/board-port.mk 头部的说明。"
+    echo "# 详见 patches/openwrt-25.12/board-port.mk 头部的说明。"
     cat "$PATCH_DIR/board-port.mk"
     echo "# <<< TENDA-PORT be12-pro <<<"
   } >> "$FLMK"

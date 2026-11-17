@@ -105,7 +105,7 @@ endef
 # ⚠️ 2026-10-13 修：此前这里**漏了 wireless**。文件在
 #    files/etc/config/ 里躺着却永远进不了固件，导致 Run #23/#24 的
 #    「固件内容抽查」报「固件里没有 /etc/config/wireless」。
-#    同一 bug 两个分支都有（main 与 immortalwrt-25.12）。
+#    同一 bug 两个分支都有（main 与 openwrt-25.12）。
 define Package/tenda-preset/conffiles
 /etc/config/network
 /etc/config/wireless

@@ -5,13 +5,24 @@
 > 本文件回答「现在什么状态、接下来干什么、哪些坑不能再踩」。
 > `README.md` 回答「这是什么、硬件细节、网络设计、刷机步骤」。
 >
-> 最后更新：2026-10-15 · 内容对应 **`immortalwrt-25.12`** 分支 HEAD `d656b12`
+> 最后更新：**2026-11-17** · 内容对应 **`openwrt-25.12`** 分支（基线 OpenWrt **v25.12.6**）
 > （固件校验值见 §8，**只对标注了 Run 号的那一次有效**，换一次构建哈希就变）
 >
-> ⚠️ 2026-10-15 之前，本文件停在 2026-10-03、对应 `main` 分支。
-> 期间 `immortalwrt-25.12` 又修了坑 16/17/18，本次已补齐（§5）。
-> **`main` 与 `immortalwrt-25.12` 的内核不同（6.18 vs 6.12）、`.config` 不同、
-> 踩到的坑也不同** —— 读本文件时先确认自己在哪个分支。
+> ## ⚠️ 2026-11-17 基线变更（重要）
+>
+> 1. **基线从 ImmortalWrt `openwrt-25.12` 分支切到 OpenWrt 官方
+>    `releases/25.12.6`（tag `v25.12.6`，commit `64900e756e`，内核 6.12）**。
+>    `versions.lock` 里同时锁了 tag 与 commit；feeds 改用 `openwrt/luci`
+>    与 `openwrt/packages` 的 `openwrt-25.12` 分支（按 SHA 锁）。
+> 2. **`main` 分支（OpenWrt SNAPSHOT，内核 6.18）及其构建产物已整体移除** ——
+>    远端分支删除、不再定时构建、Release 里只保留 25.12.6 这一版。
+> 3. 目录 `patches/immortalwrt-25.12/` 已改名为 `patches/openwrt-25.12/`。
+> 4. 移植完备性已核对：DTS 390 行与上游 main 逐字节一致；32 个 label 全在；
+>    AN8855 与 MT7987 2.5G PHY 在 6.12 均有 backport 且 config `=y`；
+>    四个 `DEVICE_PACKAGES` 在 v25.12.6 均有定义。
+>
+> 本文件中所有标注 SNAPSHOT / 6.18 / ImmortalWrt 的段落是**历史实测记录**，
+> 作为踩坑证据保留，但**不再对应任何在构建的产线**。
 
 ---
 
@@ -21,13 +32,13 @@
 |----|----|
 | **项目** | 为 Tenda BE12 Pro（泰山 BE7200 Ultra）定制 OpenWrt 主路由固件 |
 | **仓库** | <https://github.com/r3zound/Tenda-BE12-Pro-OpenWrt> |
-| **开发分支** | **`immortalwrt-25.12`**（= GitHub 默认分支）· `main` = OpenWrt SNAPSHOT 线，非默认 |
-| **基线** | **ImmortalWrt `openwrt-25.12`**，commit `313718c25f206cdeee399bdc6c002b7388c9a513`（锁 SHA，不锁分支名） |
+| **开发分支** | **`openwrt-25.12`**（= GitHub 默认分支）· 仓库只有这一条产线 |
+| **基线** | **OpenWrt 官方 `releases/25.12.6`**（tag `v25.12.6`），commit `64900e756efa667774214f9c6b17c113222e01f7`（锁 SHA，不锁分支名） |
 | **目标** | `mediatek/filogic` / `tenda_be12-pro`（MT7987A，512MB DDR4，128MB SPI-NAND） |
 | **当前状态** | ✅ Run #36 固件内容/版本抽查全过；✅ 自建源已建成 281 包 / 82 kmod；🟡 收尾 SIGPIPE 已修，待配 token 后发布；⬜ **新固件尚未上机验证** |
 | **最新成功 CI** | Run #30（`6ee6254`，2026-10-16）—— 固件全绿，**自建源因缺 kmod 拒绝发布**（见 §7.1） |
 | **编译耗时** | **1h41m**（Run #30，ccache 命中后）· 冷构建 3h13m（Run #29） |
-| **CI 触发** | 手动 `workflow_dispatch` / 推 tag / 每周定时。**⛔ 推分支不触发构建**（见下） |
+| **CI 触发** | 手动 `workflow_dispatch` / 推 tag（定时构建已取消，基线锁死）。**⛔ 推分支不触发构建**（见下） |
 
 **一句话任务**：构建体系已经稳定，**接下来该做的是上机验证 + 补齐凭据**，
 而不是继续改构建流程。
@@ -73,10 +84,10 @@
 | country | `CN`（2.4G 信道 1 / EHT20，5G 信道 36 / EHT80） |
 
 - **同名 SSID 是有意的**：客户端按信号强度自行选频段，等效于漫游，
-  与用户原先 ImmortalWrt 上的用法一致。
+  与用户原先 OpenWrt 上的用法一致。
 - **country='CN' 是正确性修复，不是偏好**：国内用 CN 监管域，
   不设或设成别的域，5G 功率上限和 DFS 行为会按错误法规走
-  （旧 ImmortalWrt 上出现过 country='AU' 导致 5G 跑到 23 dBm）。
+  （旧 OpenWrt 上出现过 country='AU' 导致 5G 跑到 23 dBm）。
 - **⛔ 配置必须预置在 `files/etc/config/wireless`，不能只靠首启脚本**。
   该文件默认不在固件里（由 `/sbin/wifi config` 运行时生成），
   只靠 `uci set` 会造出错误类型的伪段并被生成器洗掉 ——
@@ -136,7 +147,7 @@ config interface 'wan2'
 
 ```
 Tenda-BE12-Pro-OpenWrt/
-├── README.md                        本分支速览（ImmortalWrt 25.12 版）
+├── README.md                        本分支速览（OpenWrt 25.12.6 版）
 ├── AGENTS.md                        ⭐ 本文件
 ├── LICENSE                          MIT（构建脚本与配置）
 ├── versions.lock                    ⭐ 所有上游组件的 commit 锁定（**分分支不同**）
@@ -146,7 +157,7 @@ Tenda-BE12-Pro-OpenWrt/
 ├── configs/base.config              .config 片段
 ├── package/tenda-preset/            ⭐ 预置配置包（Makefile + files/）
 ├── files/                           预置文件「源」，需手动同步到 package/tenda-preset/files/
-├── patches/immortalwrt-25.12/       ⭐⭐ 本分支独有：tenda_be12-pro 板级移植三件套
+├── patches/openwrt-25.12/       ⭐⭐ 本分支独有：tenda_be12-pro 板级移植三件套
 ├── docs/                            调试留档 + HANDOVER-MIGRATION.md（换机交接）
 │
 ├── scripts/
@@ -173,14 +184,14 @@ Tenda-BE12-Pro-OpenWrt/
 
 | 文件 | 职责 | ⚠️ 改它时注意 |
 |------|------|-------------|
-| `versions.lock` | 上游 commit 锁定 | 唯一真源。**两个分支不是同一套源，别搞混** |
+| `versions.lock` | 上游 tag/commit 锁定 | 唯一真源。基线是 OpenWrt 官方 v25.12.6，改它等于换整条产线 |
 | `configs/base.config` | kconfig 片段 | **不要手工改 `.config`**，改这里后跑 `gen-config.sh` |
 | `files/` | 预置文件源 | 改完**必须**同步到 `package/tenda-preset/files/`，否则不生效 |
 | `package/tenda-preset/Makefile` | 预置配置包 | `$(CP)` 只对**无 apk 归属**的文件安全；`dhcp`/`dropbear`/`firewall`/`luci` 必须绕开走 `uci batch`（§5 坑 3 + 坑 16） |
 | `files/etc/config/network` | 双 WAN 接口划分 | 随包 `$(CP)` 安装 |
 | `files/etc/config/wireless` | 无线预置 | **无归属，可安全 `$(CP)`**；漏掉这条就是坑 16 |
 | `files/etc/uci-defaults/99-tenda-custom` | 首启脚本 | 见 §6 heredoc 陷阱；防火墙 zone 用动态索引；`switch_mirror` 默认源必须 USTC（见 §5 坑 12） |
-| `patches/immortalwrt-25.12/` | 板级移植 | `tenda-mkdualimageheader` **不能改也不能删** —— 原厂 bootloader 靠它认镜像 |
+| `patches/openwrt-25.12/` | 板级移植 | `tenda-mkdualimageheader` **不能改也不能删** —— 原厂 bootloader 靠它认镜像 |
 | `scripts/lib/stamp.sh` | 公共函数 | 所有「定位固件文件」的地方走 `find_sysupgrade_bin`，别写死名字（坑 15） |
 | `scripts/gen-feeds.sh` | feeds.conf 生成 | ⚠️ 无引号 heredoc 内**禁用反引号和裸 `#`** |
 | `scripts/verify-firmware.sh` | 内容抽查 | 用 `grep -qF`（固定串）；**正则一律单引号**（坑 16） |
@@ -320,7 +331,7 @@ fwtool -q -i /tmp/m.json openwrt-...-sysupgrade.bin && cat /tmp/m.json
 | 23 | **发布脚本空目录静默退出** | `tenda-repo` 永远只有 README，Pages 空；上传失败也只 warning | grep 补 `\|\| true`；上传失败计数并硬拒绝发布 |
 
 > 坑 1~15 是 `main`（OpenWrt SNAPSHOT / 内核 6.18）线上踩的；
-> **坑 16~23 是 `immortalwrt-25.12`（内核 6.12）独有的**，成因不同，不要互相套用。
+> **坑 16~23 是 `openwrt-25.12`（内核 6.12）独有的**，成因不同，不要互相套用。
 > 其中坑 17/18 的根因都是同一类病：**上游 kconfig 的「不可见即被删」**；
 > 坑 19 又是同一类病的第三形态：**`set -e` 下守卫写在失败命令之后等于没写**；
 > 坑 20 是第四形态：**工具的正则太窄，把「另一种合法写法」当成「不存在」**。
@@ -811,7 +822,7 @@ Run #21 打印出来的实际 `.config` 里就只有那一行 `is not set`。
 
 #### 正确入口：make 命令行 `REVISION` / `VERSION_CODE`
 
-ImmortalWrt 25.12 的 `include/toplevel.mk` 在顶层**无条件**执行：
+OpenWrt 25.12.6 的 `include/toplevel.mk` 在顶层**无条件**执行：
 
 ```make
 REVISION:=$(shell $(TOPDIR)/scripts/getver.sh)
@@ -920,7 +931,7 @@ CI 里由 `scripts/build-stamp.sh` 算好后经 `$GITHUB_ENV` 传给后续所有
 ```
 文件名          immortalwrt-...-squashfs-sysupgrade-20261017.1013.bin   ← 有戳
 /etc/openwrt_version   r0+38202-313718c25f                               ← 没戳
-DISTRIB_DESCRIPTION    ImmortalWrt 25.12-SNAPSHOT r0+38202-313718c25f    ← 没戳
+DISTRIB_DESCRIPTION    OpenWrt 25.12.6-SNAPSHOT r0+38202-313718c25f    ← 没戳
 ```
 
 #### 第一层 bug：GITHUB_ENV 写进了空值（已修）
@@ -937,7 +948,7 @@ Run #33 的证据：第 19 步「编译固件」的环境里明明有：
 REVISION: git-313718c25f-20261017.1013
 ```
 
-但固件仍是 `r0+38202-313718c25f`。原因在 ImmortalWrt 25.12 的
+但固件仍是 `r0+38202-313718c25f`。原因在 OpenWrt 25.12.6 的
 `include/toplevel.mk`（锁定 commit `313718c25f`）：
 
 ```make
@@ -1044,10 +1055,10 @@ make -j... VERSION_CODE="$TENDA_BUILD_VERSION" V=s
 ### 坑 23：发布脚本在远端目录为空时静默退出（2026-10-17）
 
 **症状**：Pages 站点是 `built`，但 `r3zound/tenda-repo` 里始终只有
-`README.md`，`/immortalwrt-25.12/packages.adb` 一直是 404。发布步骤日志只停在：
+`README.md`，`/openwrt-25.12/packages.adb` 一直是 404。发布步骤日志只停在：
 
 ```
-▸ 发布到 r3zound/tenda-repo 的 /immortalwrt-25.12/
+▸ 发布到 r3zound/tenda-repo 的 /openwrt-25.12/
   读取远端文件列表…
   上传索引…
 ```
@@ -1147,7 +1158,7 @@ make[2]: *** [package/Makefile:100: package/install] Error 2
 | 分支 | defconfig 行为 | 实测 |
 |---|---|---|
 | OpenWrt SNAPSHOT（`main`） | **自动降级** `ip-tiny` → `=m` | Run #24 的 `config.buildinfo` 里确实是 `ip-tiny=m`，同轮固件 apk 库里只有 `ip-full` |
-| ImmortalWrt 25.12（本分支） | **不降级**，两个都留 `=y` | apk 解析阶段直接报冲突 |
+| OpenWrt 25.12.6（本分支） | **不降级**，两个都留 `=y` | apk 解析阶段直接报冲突 |
 
 **修法**：`ip-tiny` 显式改 `=m`，不再依赖上游 defconfig 的脾气。
 
@@ -1286,7 +1297,7 @@ CI 的「配置 ccache」步骤补 `export CCACHE_DIR` + `mkdir -p`，
 
 #### 两个原因叠在一起
 
-**① `CONFIG_TARGET_ARCH_PKGSET` 这个符号在 ImmortalWrt 25.12 里已经不存在了。**
+**① `CONFIG_TARGET_ARCH_PKGSET` 这个符号在 OpenWrt 25.12.6 里已经不存在了。**
 GitHub 代码搜索 `TARGET_ARCH_PKGSET repo:immortalwrt/immortalwrt` → **0 命中**。
 实测该分支的包目录叫 `aarch64_cortex-a53`，是别的东西推出来的。
 
@@ -1667,18 +1678,18 @@ OpenWrt-nikki-rs、luci-app-xray、openwrt-fchomo）。这就是面板本身的�
 
 ## 8. 已交付的固件
 
-### 8.1 当前分支 `immortalwrt-25.12`
+### 8.1 当前分支 `openwrt-25.12`
 
 | 项 | 值 |
 |----|----|
 | CI Run | [#36](https://github.com/r3zound/Tenda-BE12-Pro-OpenWrt/actions/runs/39005612920)（2026-10-17；固件步骤全过，源构建收尾 SIGPIPE 判失败） |
 | 提交 | `365e86a` |
 | 编译耗时 | 约 61 分钟（ccache 命中） |
-| 基线 | ImmortalWrt `openwrt-25.12` @ `313718c25f206cdeee399bdc6c002b7388c9a513` |
+| 基线 | OpenWrt `openwrt-25.12` @ `313718c25f206cdeee399bdc6c002b7388c9a513` |
 | 内核 | **6.12**（`main` 分支是 6.18，两者 rootfs 结构不同，**固件不要混刷**） |
 | 固件版本 | `git-313718c25f-20261017.1317`（`/etc/openwrt_version` 已核对） |
 | 固件 SHA256 | `6885310679a7cd5fe2ec46290113d8c2172180ea761e9dab3341c83f65307cc5` |
-| Artifact | `tenda_be12-pro-immortalwrt-25.12-36`，保留 90 天 |
+| Artifact | `tenda_be12-pro-openwrt-25.12-36`，保留 90 天 |
 
 > ⚠️ Run #36 的产物**只存在于 Actions Artifact**，仓库不分发固件二进制。
 > 固件内容与版本戳已本地复核通过；该轮整体结论仍为 failure，
@@ -1716,7 +1727,7 @@ OpenWrt-nikki-rs、luci-app-xray、openwrt-fchomo）。这就是面板本身的�
 | 项 | 值 |
 |----|----|
 | 仓库 | `r3zound/Tenda-BE12-Pro-OpenWrt`（**公开**） |
-| **默认分支** | **`immortalwrt-25.12`**（`origin/HEAD` 指向它；`main` 是非默认的 SNAPSHOT 线） |
+| **默认分支** | **`openwrt-25.12`**（`origin/HEAD` 指向它；`main` 是非默认的 SNAPSHOT 线） |
 | CI workflow | `.github/workflows/build.yml` |
 | Artifact 保留 | 90 天 |
 | Actions secret | `TENDO_REPO_PRIVATE_KEY` —— 🔴 **当前未配置**，见 §7.1 |
@@ -2113,6 +2124,6 @@ bash ../.sshhelper/test-publish-failclosed.sh >/dev/null 2>&1 \
   绿灯证明不了缓存存下来了，要看日志里有没有 `ccache: ...gcc` 调用行
 - 依赖「上游 defconfig 会自动降级互斥包」
   → 参见坑 17；`main` 分支的 SNAPSHOT 会把 `ip-tiny` 降成 `=m`，
-  ImmortalWrt 25.12 **不降级**，两个都是 `=y` 时 apk 直接报冲突，
+  OpenWrt 25.12.6 **不降级**，两个都是 `=y` 时 apk 直接报冲突，
   **而且要跑满 160 分钟才炸**。能显式写死的就显式写死
 

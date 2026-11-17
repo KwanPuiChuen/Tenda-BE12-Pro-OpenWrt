@@ -1,7 +1,7 @@
 # 交接文档 · 交给 Codex
 
 > 面向对象：在本机用 Codex CLI 接手本项目的 agent / 人。
-> 写作时间：2026-10-17 · 对应分支 `immortalwrt-25.12` · 交接基线 HEAD `7e136a6`
+> 写作时间：2026-10-17 · 对应分支 `openwrt-25.12` · 交接基线 HEAD `7e136a6`
 > （接手后的 kmod 收集 / 发布 fail-closed / 面板诊断修复见后续 `git log`）
 >
 > **本文不重复 `AGENTS.md`**（那是项目的完整技术档案，坑位清单 1~23 都在里面）。
@@ -16,7 +16,7 @@
 |---|---|
 | 项目 | 为 Tenda BE12 Pro 定制 OpenWrt 主路由固件 |
 | 仓库 | `r3zound/Tenda-BE12-Pro-OpenWrt`（**公开**） |
-| 分支 | `immortalwrt-25.12`（= GitHub 默认分支），内核 6.12 |
+| 分支 | `openwrt-25.12`（= GitHub 默认分支），内核 6.12 |
 | 项目根 | `/mnt/c/Users/LG/Documents/Codex/Tenda-BE12-Pro-OpenWrt/Tenda-BE12-Pro-OpenWrt` |
 | 数据目录 | 在项目根的**上级**（`.sshhelper/`、`.repo-keys/`、`固件/`、`备份/` 等） |
 | 构建 | GitHub Actions，约 90 分钟/轮，ccache 命中后 |
@@ -230,7 +230,7 @@ CI 全绿、`verify-firmware.sh` 的 60+ 项抽查全过，只有真正把 squas
 
 > 2026-10-19 复核：Run #36 的第 27 步已确认是收尾 `ls | head` 的 SIGPIPE，
 > 修复提交 `226bdbd` 已在远端；但 `r3zound/tenda-repo` 目前只有 README.md，
-> `immortalwrt-25.12/` 目录不存在，Pages 索引 URL 仍是 404。另已修掉
+> `openwrt-25.12/` 目录不存在，Pages 索引 URL 仍是 404。另已修掉
 > `publish-repo.sh` 打印地址多一层 `r3zound/` 的问题，并在 workflow 开头
 > 增加 token 预检，缺 token 时不再白烧一整轮构建。
 
@@ -250,7 +250,7 @@ CI 全绿、`verify-firmware.sh` 的 60+ 项抽查全过，只有真正把 squas
 
 Run #33 第 24 步「固件内容抽查」失败，但其余 60+ 项全过。环境的
 `REVISION=git-313718c25f-20261017.1013` 明明存在，固件里仍是
-`r0+38202-313718c25f`。真因是 ImmortalWrt 25.12 的顶层
+`r0+38202-313718c25f`。真因是 OpenWrt 25.12.6 的顶层
 `toplevel.mk` 无条件执行 `REVISION:=$(shell getver.sh)`，
 **环境变量被 makefile 覆盖**。
 
@@ -282,7 +282,7 @@ Run #36 验证通过：`/etc/openwrt_version = git-313718c25f-20261017.1317`，
 # 1. 触发（需 token，scopes: gist, repo, workflow）
 curl -X POST -H "Authorization: Bearer $TOKEN" \
   https://api.github.com/repos/r3zound/Tenda-BE12-Pro-OpenWrt/actions/workflows/build.yml/dispatches \
-  -d '{"ref":"immortalwrt-25.12","inputs":{"variant":"immortalwrt-25.12"}}'
+  -d '{"ref":"openwrt-25.12","inputs":{"variant":"openwrt-25.12"}}'
 
 # 2. 改动小的话，先在本地跑自检（AGENTS.md §11 的清单）
 bash -n scripts/*.sh scripts/lib/*.sh

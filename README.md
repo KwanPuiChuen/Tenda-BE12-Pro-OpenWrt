@@ -1,18 +1,19 @@
-# Tenda BE12 Pro — ImmortalWrt 25.12 固件
+# Tenda BE12 Pro — OpenWrt 25.12.6 固件
 
 给 Tenda BE12 Pro（MT7987A / 512MB / 128MB SPI-NAND / MT7992E）编的
-**ImmortalWrt 25.12** 固件。
+**OpenWrt 25.12.6** 固件。
 
-> ## 这是什么分支
+> ## 版本与分支
 >
-> 仓库有两个分支，**别搞混**：
+> 仓库只有**一条产线**：`openwrt-25.12` 分支，基线锁死
+> **OpenWrt 官方 releases/25.12.6**（tag `v25.12.6`，commit
+> `64900e756e`，内核 6.12）。版本与 SHA 全部写在 `versions.lock`。
 >
-> | 分支 | 基线 | 内核 | LuCI | 特点 |
-> |------|------|------|------|------|
-> | **`immortalwrt-25.12`**（当前） | ImmortalWrt 25.12 | 6.12 | 稳定版 | 固定可复现、国内软件源和插件全 |
-> | `main` | OpenWrt SNAPSHOT | 6.18 | master（滚动） | 跟着主线走，修复最新 |
+> 原来的 `main` 分支（OpenWrt SNAPSHOT，内核 6.18）与它的构建产物
+> **已整体移除**：不再构建、不再保留 Release。原因很简单 ——
+> 两套 rootfs 结构不同，交叉刷写会失败，留两版只会让人刷错。
 >
-> 日常用哪个都行。**固件不要混刷** —— 两个分支的 rootfs 结构不同。
+> 能刷的固件只有一版：25.12.6 编出来的 **squashfs-sysupgrade.bin**。
 
 ---
 
@@ -21,7 +22,7 @@
 ```sh
 git clone https://github.com/r3zound/Tenda-BE12-Pro-OpenWrt.git
 cd Tenda-BE12-Pro-OpenWrt
-git checkout immortalwrt-25.12
+git checkout openwrt-25.12
 ./scripts/build.sh
 ```
 
@@ -32,7 +33,7 @@ CI 构建（推荐，约 80 分钟）：
 # 或用 API：
 curl -X POST -H "Authorization: token <你的PAT>" \
   https://api.github.com/repos/r3zound/Tenda-BE12-Pro-OpenWrt/actions/workflows/build.yml/dispatches \
-  -d '{"ref":"immortalwrt-25.12"}'
+  -d '{"ref":"openwrt-25.12"}'
 ```
 
 产物在 `bin/targets/mediatek/filogic/`：
@@ -50,7 +51,7 @@ config.buildinfo
 
 | 位置 | 内容 | 举例 |
 |---|---|---|
-| LuCI → 系统 → 系统 | `OpenWrt SNAPSHOT <版本标识>` | `OpenWrt SNAPSHOT r1-9b95be917b-20261004.0031` |
+| LuCI → 系统 → 系统 | `OpenWrt 25.12.6 <版本标识>` | `OpenWrt SNAPSHOT r1-9b95be917b-20261004.0031` |
 | `.bin` 文件名后缀 | 同上的最后一段 | `-20261004.0031` |
 | `config.buildinfo` 的 `build_stamp` / `built_at` | 同上，另给可读格式 | `2026-10-04 00:31 CST` |
 
@@ -64,14 +65,14 @@ cat /etc/openwrt_version      # r1-9b95be917b-20261004.0031
 
 ---
 
-## 这个分支做了什么（和 main 的差别）
+## 移植了什么
 
-ImmortalWrt 25.12 **官方没有这块板子**。本分支把它移植进来了，共三件：
+OpenWrt 25.12.6 **官方没有这块板子**。本分支把它移植进来了，共三件：
 
 | 文件 | 行数 | 作用 |
 |------|------|------|
-| `patches/immortalwrt-25.12/mt7987a-tenda-be12-pro.dts` | 390 | 设备树：GPIO、SPI-NAND 分区、AN8855 交换芯片、MT7992 无线、MAC 地址从 Factory 区读 |
-| `patches/immortalwrt-25.12/board-port.mk` → `Build/tenda-mkdualimageheader` | 6 | 原厂私有镜像头（`"God1"` 魔数 + gzip CRC） |
+| `patches/openwrt-25.12/mt7987a-tenda-be12-pro.dts` | 390 | 设备树：GPIO、SPI-NAND 分区、AN8855 交换芯片、MT7992 无线、MAC 地址从 Factory 区读 |
+| `patches/openwrt-25.12/board-port.mk` → `Build/tenda-mkdualimageheader` | 6 | 原厂私有镜像头（`"God1"` 魔数 + gzip CRC） |
 | 同上 → `Device/tenda_be12-pro` | 14 | 板子定义：内存布局、打包方式 |
 
 由 `scripts/apply-board-port.sh` 在克隆源码后自动追加，**幂等**。
@@ -82,14 +83,20 @@ ImmortalWrt 25.12 **官方没有这块板子**。本分支把它移植进来了�
 MT7987 这颗 SoC 在 25.12 里是支持的（bpi-r4-lite、routerich_be7200 等），
 缺的只是「这台机器的描述」，所以移植量很小。
 
-### 已知的两个风险
+### 移植完备性核对（2026-11-17，针对 v25.12.6）
 
-1. **内核 6.12 vs 6.18** —— DTS 里用到的较新 binding
-   （`airoha,an8855-ext-surge`、MT76 的 `band@0`/`band@1` 节点写法）
-   6.12 未必认。构建失败先看 dtc 报的是哪个属性。
-2. **aurora 主题** —— 锁的 commit 是给 LuCI master 编译的，
-   25.12 是稳定版、API 可能有出入。症状是主题装上了但渲染不出来
-   （下拉框空 / 界面花掉）。不行就回退到 argon。
+| 检查项 | 结果 |
+|---|---|
+| DTS 与上游 main 一致性 | 390 行逐字节一致（`diff` 为空） |
+| DTS 引用的 32 个 label | v25.12.6 的 `mt7987a.dtsi` / `mt7987.dtsi` 中全部存在 |
+| AN8855 交换芯片 | 6.12 已有 backport：`patches-6.12/737-net-dsa-add-Airoha-AN8855.patch`，config 中 `NET_DSA_AN8855`/`MFD_AIROHA_AN8855`/`NVMEM_AN8855_EFUSE`/`AIR_AN8855_PHY`/`MDIO_AN8855` 均 `=y` |
+| MT7987 2.5G PHY | 6.12 已有 `752-net-phy-mediatek-i2p5g-add-support-for-mt7987.patch` |
+| `DEVICE_PACKAGES` 四个包 | `mt7987-2p5g-phy-firmware`、`airoha-en8811h-firmware`、`kmod-phy-airoha-en8811h`、`kmod-mt7992-firmware` 在 v25.12.6 中均有定义 |
+| `band@0`/`band@1` | 由板级 DTS 自己定义，与 dtsi 不冲突 |
+
+剩余唯一风险是 **aurora 主题**：锁的 commit 是给 LuCI master 编的，
+25.12 稳定版 API 可能有出入，症状是主题装上但不渲染。
+编译若报错，直接把 `versions.lock` 里的 aurora 换回 argon。
 
 ---
 
@@ -100,13 +107,13 @@ MT7987 这颗 SoC 在 25.12 里是支持的（bpi-r4-lite、routerich_be7200 等
    cd bin/targets/mediatek/filogic && sha256sum -c sha256sums
    ```
 2. 确认型号是 **Tenda BE12 Pro**
-3. 从原厂固件进入需要**过渡固件**，步骤见 `main` 分支的 README §7
+3. 从原厂固件进入需要**过渡固件**，步骤见 `AGENTS.md`
 4. 升级时**不要勾选「保留设置」** —— 会带着旧配置，坑很多
 5. **刷完不要用 `/etc/init.d/network restart`**！
    AN8855 交换芯片在 SNAPSHOT 系固件下对整栈软重置支持不良，
    整栈重启会导致 LAN 口失联、必须断电。一律用 `reload_config`（增量生效）
 
-> 详细文档（坑位清单、救援流程、设计取舍）在 **`AGENTS.md`** 和 `main` 分支的 README。
+> 详细文档（坑位清单、救援流程、设计取舍）在 **`AGENTS.md`** 与 `docs/`。
 
 ---
 

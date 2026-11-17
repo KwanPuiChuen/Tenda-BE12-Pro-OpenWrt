@@ -98,7 +98,7 @@ if [ "$(git rev-parse HEAD 2>/dev/null || echo '')" != "$OPENWRT_COMMIT" ]; then
   #    而 OpenWrt 树里的 scripts/getver.sh 依赖完整历史：
   #      git rev-list ee53a240..HEAD | wc -l   → 算出 r<N> 里的那个 N
   #    历史一截断，它就返回空 → 版本串退化成没有 hash 的样子
-  #    （Run #21 实测：immortalwrt-25.12 分支锁了 commit，走的就是这条路）。
+  #    （Run #21 实测：openwrt-25.12 分支锁了 commit，走的就是这条路）。
   #    所以先看看这个 commit 本来在不在本地（clone 全历史，通常在），
   #    在就直接 checkout，只有真不在才浅拉。
   if git cat-file -e "${OPENWRT_COMMIT}^{commit}" 2>/dev/null; then

@@ -6,8 +6,8 @@
 #
 # 核心思想（这一条决定整个项目成不成立）：
 #   **源里的 .apk 必须和固件在同一次构建、同一个 build root 里产出。**
-#   外部源永远慢一拍 —— 实测别人的源给的是 kmod-nft-tproxy-6.18.52-r1，
-#   而 SNAPSHOT 固件已经是 6.18.54，vermagic 不匹配，透明代理直接装不上。
+#   外部源永远慢一拍 —— 实测别人的源给的 kmod 内核小版本比固件低一档，
+#   vermagic 不匹配，透明代理包直接装不上（历史上 6.18.52 vs 6.18.54 就是这么栽的）。
 #   自己编就没有这个问题。
 #
 #   更狠的是：刷完机后官方 distfeeds.list 只有 4 个 feed、**没有 kmods feed**
@@ -301,7 +301,7 @@ step "收集 .apk"
 #    `##[error]Process completed with exit code 1.`，连 die 的提示都没打出来。
 #
 #    两个原因叠在一起：
-#      (1) CONFIG_TARGET_ARCH_PKGSET 这个符号在 ImmortalWrt 25.12 里
+#      (1) CONFIG_TARGET_ARCH_PKGSET 这个符号在 OpenWrt 25.12.6 里
 #          **已经不存在了**（GitHub 代码搜索：TARGET_ARCH_PKGSET 全仓 0 命中）。
 #          实测该分支的包目录叫 aarch64_cortex-a53，是别的东西推出来的。
 #      (2) 本脚本开头是 `set -euo pipefail`。grep 找不到会返回 1，

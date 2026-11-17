@@ -3,22 +3,26 @@
 # -----------------------------------------------------------------------------
 # 追加到 target/linux/mediatek/image/filogic.mk 末尾。
 #
-# 为什么要移植：ImmortalWrt openwrt-25.12 分支**没有**这块板子
+# 为什么要移植：OpenWrt openwrt-25.12 分支**没有**这块板子
 #   （实测 filogic.mk 里 tenda_be12-pro 出现 0 次，190 个 filogic 设备）。
 #   但 MT7987 SoC 本身是支持的（bpi-r4-lite / mt7987a-rfb / be7200 等），
 #   所以缺的只是「这台机器的描述」，而不是底层驱动。
 #
 # 需要移植的三件套（总计约 410 行）：
-#   1) patches/immortalwrt-25.12/mt7987a-tenda-be12-pro.dts  设备树 390 行
+#   1) patches/openwrt-25.12/mt7987a-tenda-be12-pro.dts  设备树 390 行
 #   2) 本文件里的 Build/tenda-mkdualimageheader               6 行
 #   3) 本文件里的 Device/tenda_be12-pro                      14 行
 #
 # 三件都取自 openwrt/openwrt main 分支（板子 2026-03-09 之后才合入主线，
 # 所有稳定版 24.10 / 25.12.0~.3 都没有）。
 #
-# ⚠️ 版本差异风险：ImmortalWrt 25.12 是 **内核 6.12**，主线 SNAPSHOT 是 6.18。
-#    DTS 里用到的较新 binding（airoha,an8855-ext-surge、MT76 的 band@0/band@1
-#    节点写法）6.12 未必认。真构建失败时先看 dtc 报的是哪个属性/节点。
+# 版本差异核对（2026-11-17，针对 v25.12.6 / 内核 6.12）：
+#    · an8855 全家桶在 6.12 已有 backport（patches-6.12/737-net-dsa-add-Airoha-AN8855.patch），
+#      config-6.12 中 NET_DSA_AN8855 / MFD_AIROHA_AN8855 / NVMEM_AN8855_EFUSE /
+#      AIR_AN8855_PHY / MDIO_AN8855 全为 =y —— dtc 过、驱动也在。
+#    · mt7987 的 2.5G PHY 有 752-net-phy-mediatek-i2p5g-add-support-for-mt7987.patch。
+#    · band@0 / band@1 由本板 DTS 自己定义，与 dtsi 无冲突。
+#    结论：本文件可原样用于 25.12.6；若将来出现 dtc 报错，先看是哪个属性。
 #
 # 由 scripts/apply-board-port.sh 自动追加，带 TENDA_PORT 标记，可重复执行。
 # =============================================================================

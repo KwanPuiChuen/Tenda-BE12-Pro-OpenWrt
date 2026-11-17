@@ -1,9 +1,16 @@
 # 换机迁移交接说明
 
+> ## ⚠️ 历史文档（2026-10-15 定格）
+>
+> 本文记录的是 **ImmortalWrt 25.12 分支时代**的迁移与踩坑过程，作为证据保留。
+> **当前基线已改为 OpenWrt 官方 `releases/25.12.6`，SNAPSHOT 产线已移除。**
+> 看当前状态请读 `docs/MIGRATION-25.12.6.md` 与本文件同期的 `README.md` / `AGENTS.md` §0。
+> 下文出现的分支名、HEAD、Run 号、内核 6.18.54 等均已过时，不要照抄执行。
+
 > 读者：把这台机器换掉之后、拿到这份文档的人或 agent。
 >
 > 写作时间：2026-10-04（北京时间）· **最近更新：2026-10-15**
-> 代码状态：分支 `immortalwrt-25.12`，HEAD `d656b12`（本文件随该提交入库），工作树干净，已推送
+> 代码状态：分支 `openwrt-25.12`，HEAD `d656b12`（本文件随该提交入库），工作树干净，已推送
 > 设备状态：Tenda BE12 Pro 刷的是 Run #18 产物 `cb5c51a`，内核 6.18.54
 >             （⚠️ 设备上仍是旧固件，**Run #28 / 内核 6.12 那一版尚未上机**）
 >
@@ -110,7 +117,7 @@ bash /c/Users/LG/workspace/minimax/Tenda-BE12-Pro-OpenWrt/.sshhelper/rscp.sh <�
 | `SNAPSHOT固件配置教程\` | 320 KB | **`1-setup-wan.sh` 里有明文 PPPoE 密码** |
 
 同目录还有 `final-healthcheck.sh` / `wan-setup.sh` / `SSH粘贴执行命令.md` /
-`复制粘贴执行手册.md` / 几个 `ImmortalWrt.mtd*.bin`。
+`复制粘贴执行手册.md` / 几个 `OpenWrt.mtd*.bin`。
 
 🚫 **这些内容一律不要提交进 git**（`.gitignore` 里的 `*.pem` 规则也覆盖不到它，
 因为它根本不是 pem）。PPPoE 凭据是用户明确要求不入仓库的。
@@ -121,7 +128,7 @@ bash /c/Users/LG/workspace/minimax/Tenda-BE12-Pro-OpenWrt/.sshhelper/rscp.sh <�
 |---|---|---|
 | `固件\` | 210 MB | 多个固件 bin（sysupgrade、过渡固件、原厂包、SNAPSHOT/gt/iStore 变体） |
 | `_firmware_artifact\` | 266 MB | run 14/15/18 的 zip 与分析脚本 |
-| `备份\` | 112 MB | 含 `ImmortalWrt.mtd*.bin` |
+| `备份\` | 112 MB | 含 `OpenWrt.mtd*.bin` |
 | `教程\` | 72 KB | — |
 | `dts\` | 8 KB | — |
 | `info\` | 136 KB | — |
@@ -202,7 +209,7 @@ bash /c/Users/LG/workspace/minimax/Tenda-BE12-Pro-OpenWrt/.sshhelper/rscp.sh <�
 ```sh
 git clone https://github.com/r3zound/Tenda-BE12-Pro-OpenWrt.git
 cd Tenda-BE12-Pro-OpenWrt
-git checkout immortalwrt-25.12
+git checkout openwrt-25.12
 git log --oneline -1     # 期望: d656b12 或更新
 ls docs/HANDOVER-MIGRATION.md   # 这份文档本身，验 clone 对不对最直接
 ```
@@ -211,13 +218,13 @@ ls docs/HANDOVER-MIGRATION.md   # 这份文档本身，验 clone 对不对最直
 
 | 分支 | HEAD | 说明 |
 |---|---|---|
-| `immortalwrt-25.12` | `d656b12` | ← **GitHub 默认分支，当前在做的** |
+| `openwrt-25.12` | `d656b12` | ← **GitHub 默认分支，当前在做的** |
 | `main` | `a89d1fe` | OpenWrt SNAPSHOT 线，非默认 |
 
 ⚠️ 两个分支的**内核不同（6.12 vs 6.18）、`.config` 不同、踩到的坑也不同**。
-坑 1~15 是 `main` 上踩的，**坑 16/17/18 是 `immortalwrt-25.12` 独有的**。
+坑 1~15 是 `main` 上踩的，**坑 16/17/18 是 `openwrt-25.12` 独有的**。
 固件**不要混刷** —— rootfs 结构不一样。
-别 checkout 错了；日常开发在 `immortalwrt-25.12`。
+别 checkout 错了；日常开发在 `openwrt-25.12`。
 
 > ⚠️ **clone 前先配 git 网络设置**，否则大概率拉不动：
 > `github.com` 直连会超时/被重置，且 Windows 的 schannel 后端会报
@@ -364,8 +371,8 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 echo "▸ git 仓库"
 cd "$ROOT" || exit 1
-git rev-parse --abbrev-ref HEAD | grep -q immortalwrt-25.12 \
-  && ok "在 immortalwrt-25.12 分支" || no "分支不对（当前 $(git rev-parse --abbrev-ref HEAD)）"
+git rev-parse --abbrev-ref HEAD | grep -q openwrt-25.12 \
+  && ok "在 openwrt-25.12 分支" || no "分支不对（当前 $(git rev-parse --abbrev-ref HEAD)）"
 [ -z "$(git status --porcelain)" ] && ok "工作树干净" || no "工作树有未提交改动"
 # ⚠️ 别把具体 hash 写死在这里 —— 每次提交都会过期，判据会假失败。
 #    改成验「这份交接文档确实在 checkout 里」。
@@ -408,7 +415,7 @@ echo
 ### 7.1 已完成
 
 - **坑 1–13**：全部修复并推送（`eb56c79` / `cf00b83`）
-- **ImmortalWrt 25.12 板级移植**：DTS + `Build/tenda-mkdualimageheader` + `Device/tenda_be12-pro`（`7864c6d`）
+- **OpenWrt 25.12.6 板级移植**：DTS + `Build/tenda-mkdualimageheader` + `Device/tenda_be12-pro`（`7864c6d`）
 - **自建 apk 源基础设施**：`fetch-proxy-packages.sh` / `build-repo.sh` / `publish-repo.sh`（`37cba7b` / `a3896f0` / `53d3763`）
 - **签名机制核实与 4 处致命缺陷修复**（`208119c`）
 - **坑 14**（内核模块源）`b02e556`
@@ -474,7 +481,7 @@ make -j$(nproc) V=s 2>&1 | tee /tmp/build.log || { ...; exit 1; }
 
 ⚠️ 已知隐患：`.github/workflows/build.yml` 的 `timeout-minutes: 360` 可能不够——
 Run #19 的冷构建跑了 2h15m 还在工具链阶段（ccache 几乎没命中，因为之前缓存是
-openwrt SNAPSHOT 内核 6.18、这次是 ImmortalWrt 内核 6.12）。**考虑调高。**
+openwrt SNAPSHOT 内核 6.18、这次是 OpenWrt 内核 6.12）。**考虑调高。**
 
 </details>
 
@@ -503,7 +510,7 @@ openwrt SNAPSHOT 内核 6.18、这次是 ImmortalWrt 内核 6.12）。**考虑�
 
 新机器上第一个 agent 读完 `AGENTS.md` 之后，直接说这段即可接上（**2026-10-15 更新**）：
 
-> 接着 `immortalwrt-25.12` 分支干，HEAD 是 `d656b12`（GitHub 默认分支）。
+> 接着 `openwrt-25.12` 分支干，HEAD 是 `d656b12`（GitHub 默认分支）。
 >
 > **构建链路已经全绿**：坑 1~18 全部修完，最近一次成功是 **Run #28**
 > （2026-10-14，130.8 分钟）。`make | tee` 吞退出码、stamp 假失败、
@@ -531,7 +538,7 @@ openwrt SNAPSHOT 内核 6.18、这次是 ImmortalWrt 内核 6.12）。**考虑�
 <details>
 <summary>2026-10-04 的旧开场白（已过期，留档）</summary>
 
-> 接着 `immortalwrt-25.12` 分支干。HEAD 是 `d9cc194`。上一个会话的收尾状态：
+> 接着 `openwrt-25.12` 分支干。HEAD 是 `d9cc194`。上一个会话的收尾状态：
 > CI Run #22 **并没有编译成功** —— 第 18 步显示绿灯是假的（`make | tee` 吞了退出码，
 > 已在 `d9cc194` 修掉），artifact 里只有 8 个 BL2 preload，没有 sysupgrade 镜像。
 > 第 19 步的失败是**正确报警**，别去「修」它。
