@@ -258,6 +258,12 @@ jobs:
           ./scripts/feeds install -a -p luci
           # frp / luci-app-frpc 都用官方包（packages / luci feed 自带）
           ./scripts/feeds install frp/frpc
+          # ⚠️ packages feed 只装白名单，不 install -a（几千个包，装完 kconfig 爆炸）。
+          #    漏装的后果：符号压根不存在 → base.config 里的 =y 被 kconfig 静默丢掉 →
+          #    .config 里没有该行 → 校验步骤报「未进入 .config」。
+          #    Run #34/#35 的 zerotier 就是这么丢的：它没有 luci-app 依赖顺带带进来。
+          #    新增 packages feed 的包时，必须在这里登记。
+          ./scripts/feeds install zerotier
           # argon / aurora 主题由下一步挂到 package/，不走 feeds
           echo "── luci feed 装了多少包 ──"
           ls -1 package/feeds/luci 2>/dev/null | wc -l
