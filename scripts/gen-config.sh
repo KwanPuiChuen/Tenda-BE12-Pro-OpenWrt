@@ -117,7 +117,22 @@ echo "  $CCACHE_TARGET_DIR"
 
 # 让 make 解析依赖并补全
 echo "▸ 运行 make defconfig 解析…"
-make defconfig
+# ⚠️ 坑 19（Run #34 / tag v25.12.6-1 暴露）：25.12 feeds 里
+#    luci-app-weechat 存在自依赖（symbol PACKAGE_luci-app-weechat depends on
+#    PACKAGE_luci-app-weechat），kconfig 会打 error 并**跳过该符号之后的
+#    依赖求值**，于是 base.config 里写的 zerotier 被静默丢弃
+#    （现象：其余 18 个关键包都在，只有 zerotier 缺，且没有任何
+#    "which does not exist" 警告 —— 依赖项其实都齐全）。
+#    解法：首遍容错（让它把能写的先写进去），第二遍在已有 .config 基础上
+#    收敛，跳过被污染的符号，剩下的符号就能正常求值。
+make defconfig || true
+make defconfig > /tmp/defconfig-2nd.log 2>&1 || true
+if grep -q 'recursive dependency' /tmp/defconfig-2nd.log 2>/dev/null; then
+  echo "  ⚠️  第二遍 defconfig 仍报 recursive dependency，相关符号可能缺失："
+  grep -A1 'recursive dependency detected' /tmp/defconfig-2nd.log | sed 's/^/     /'
+else
+  echo "  ✅ 第二遍 defconfig 收敛完成（无 recursive dependency）"
+fi
 
 # ---- 回读校验 ---------------------------------------------------------------
 # ⚠️ 这里**不能**检查 .config 里的 CONFIG_VERSION_CODE —— 走 REVISION 路线
