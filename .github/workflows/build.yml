@@ -45,6 +45,11 @@ jobs:
     name: Build (mediatek/filogic - tenda_be12-pro)
     runs-on: ubuntu-24.04
     timeout-minutes: 360
+    # 创建 Release 与上传资产需要 contents: write。
+    # 缺省时 softprops/action-gh-release 会报
+    # "Resource not accessible by integration"（run#50 即栽在此处，固件本身已构建成功）。
+    permissions:
+      contents: write
 
     steps:
       # ---------------------------------------------------------------------
