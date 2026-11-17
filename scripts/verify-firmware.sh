@@ -586,6 +586,16 @@ if [ -d "$R/usr/share/mwan3" ] || [ -x "$R/usr/sbin/mwan3" ]; then
     ok_ "mwan3 带 nft 移植版特征（mwan3ct / mwan3-diag）"
   else
     bad_ "mwan3 缺 nft 移植版特征（无 mwan3ct / mwan3-diag）——疑似官方 iptables 版，与 fw4 冲突"
+    # 失败必须留下「到底装了什么」的证据，否则只能靠 69MB 日志反推
+    echo "      实际 /usr/sbin 下的 mwan3*："
+    ls -1 "$R/usr/sbin" 2>/dev/null | grep '^mwan3' | sed 's/^/        · /' || echo "        （无）"
+    echo "      实际 /usr/share/mwan3 内容："
+    ls -1 "$R/usr/share/mwan3" 2>/dev/null | sed 's/^/        · /' || echo "        （无）"
+    echo "      已安装包记录里与 mwan3 有关的文件（前 20 条）："
+    grep -ho 'usr/sbin/mwan3[a-z-]*' "$R"/usr/lib/opkg/info/mwan3*.list 2>/dev/null \
+      | sort -u | head -20 | sed 's/^/        · /' || echo "        （无 opkg 记录）"
+    echo "      判定：需要 dl12345/mwan3（nft 版）提供 mwan3-diag；"
+    echo "            若这里只有 mwan3 / mwan3track，说明 feeds 的官方版顶掉了直挂版。"
   fi
   [ -e "$R/etc/config/mwan3" ] && ok_ "预置 /etc/config/mwan3 已随包进镜像" \
     || warn_ "镜像内没有 /etc/config/mwan3（首启由 install-mwan3.sh 生成，可接受）"

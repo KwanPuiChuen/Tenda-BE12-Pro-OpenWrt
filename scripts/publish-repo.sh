@@ -1,6 +1,13 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # =============================================================================
 # publish-repo.sh — 把 build-repo.sh 的产物推到 tenda-repo 仓库
+#
+# ⚠️ 必须是 bash，不能是 /bin/sh。
+#    Ubuntu runner 的 /bin/sh 是 dash，执行 `set -euo pipefail` 会直接报
+#    "set: Illegal option -o pipefail" 并以 **exit code 2** 退出。
+#    Run #49 的「发布自建源到 GitHub Pages」就是这么挂的：
+#    自建源已经建好、也上传成了 artifact，唯独最后一步发布被 dash 判死，
+#    日志里只有 "Process completed with exit code 2"，看不出任何线索。
 # -----------------------------------------------------------------------------
 # 用法： ./scripts/publish-repo.sh <产物目录> <分支名> [目标仓库]
 #   例： ./scripts/publish-repo.sh ./apk-repo main r3zound/tenda-repo

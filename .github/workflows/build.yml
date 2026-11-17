@@ -28,6 +28,11 @@ on:
         type: boolean
         required: false
         default: false
+      skip_repo:
+        description: '跳过自建 apk 源（只出固件，省约 90 分钟）'
+        type: boolean
+        required: false
+        default: false
   push:
     tags:
       - 'v*'
@@ -280,6 +285,18 @@ jobs:
           echo "──── package/ 下的第三方包 ────"
           ls -1 "$OPENWRT_SRC/package" | grep -vE '^(feeds|README|index|config)' || true
           cat "$OPENWRT_SRC/package/.extra-packages"
+          # ⚠️ 直挂包的「身份」必须打在日志里：同名包被 feeds 顶掉时，
+          #    编译全绿、只有抽查能发现装错版本（Run #49 的 mwan3 就是这样）。
+          echo "──── 直挂包身份核对 ────"
+          for d in "$OPENWRT_SRC"/package/*/; do
+            [ -f "$d/Makefile" ] || continue
+            case "$(basename "$d")" in feeds) continue;; esac
+            printf '  %s: ' "$(basename "$d")"
+            grep -hE '^\s*PKG_(NAME|VERSION):=' "$d/Makefile" 2>/dev/null | tr '\n' ' '
+            echo
+          done
+          echo "  feeds 中的同名包（应为空）："
+          ls -1d "$OPENWRT_SRC"/package/feeds/*/mwan3 2>/dev/null || echo "    （无）"
 
       - name: 挂载预置配置包
         run: |
@@ -477,35 +494,7 @@ jobs:
           # 编译成功 ≠ 内容正确。
           # Run #5 就是编译全绿、体积守卫也过，但预置配置文件一个都没进固件；
           # Run #5 的三个 LuCI 主题也全都没进。只有直接扫 squashfs 才抓得住。
-          #
-          # ⚠️ Run #6 失败时只拿到 "exit code 1"，具体哪一项 ❌ 无从得知
-          #    （日志 zip 下载对大文件会截断）。
-          #    所以这里把每个 ❌ 行提成 annotation，并把全量输出写入
-          #    step summary + 上传成小 artifact，保证下次失败能直接定位。
-          set -o pipefail
-          ./scripts/verify-firmware.sh "$OPENWRT_SRC" > /tmp/verify.log 2>&1 || true
-          RC=${PIPESTATUS[0]}
-          sed -i 's/\x1b\[[0-9;]*m//g' /tmp/verify.log
-          tail -60 /tmp/verify.log
-          grep -q '\u274c' /tmp/verify.log && grep '\u274c' /tmp/verify.log | sed 's/^ *//' | while IFS= read -r l; do
-            echo "::error::$l"
-          done
-          {
-            echo '### 固件内容抽查完整输出'
-            echo '```'
-            cat /tmp/verify.log
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          if grep -q '\u274c' /tmp/verify.log; then exit 1; fi
-          exit $RC
-
-      - name: 上传抽查日志
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: verify-log-${{ github.run_number }}
-          path: /tmp/verify.log
-          retention-days: 7
+          ./scripts/verify-firmware.sh "$OPENWRT_SRC"
 
       # =====================================================================
       # 自建 apk 源（r3zound/tenda-repo）
@@ -518,12 +507,12 @@ jobs:
       #    拆成另一个 job 就得重编一遍，意义全无。
       # =====================================================================
       - name: 拉取面板仓库
-        if: steps.repokey.outputs.have_key == 'true'
+        if: steps.repokey.outputs.have_key == 'true' && inputs.skip_repo != true && github.event_name == 'workflow_dispatch'
         run: |
           ./scripts/fetch-proxy-packages.sh "$OPENWRT_SRC"
 
       - name: 面板仓库就位校验 ⚠️
-        if: steps.repokey.outputs.have_key == 'true'
+        if: steps.repokey.outputs.have_key == 'true' && inputs.skip_repo != true && github.event_name == 'workflow_dispatch'
         run: |
           # clone 返回 0 ≠ 包能被编。必须确认目录里有 Makefile，
           # 否则 .config 里压根没有这个符号，make 会一路绿灯。
@@ -554,7 +543,7 @@ jobs:
 
       # ---------------------------------------------------------------------
       - name: 构建自建源
-        if: steps.repokey.outputs.have_key == 'true'
+        if: steps.repokey.outputs.have_key == 'true' && inputs.skip_repo != true && github.event_name == 'workflow_dispatch'
         env:
           REPO_BRANCH: ${{ startsWith(github.ref, 'refs/tags/') && 'tag' || github.ref_name }}
         run: |
@@ -563,7 +552,7 @@ jobs:
           head -20 apk-repo/BUILD-INFO.txt
 
       - name: 上传自建源产物
-        if: always() && steps.repokey.outputs.have_key == 'true'
+        if: always() && steps.repokey.outputs.have_key == 'true' && inputs.skip_repo != true && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: apk-repo-${{ github.run_number }}
@@ -575,7 +564,7 @@ jobs:
           if-no-files-found: warn
 
       - name: 发布自建源到 GitHub Pages
-        if: steps.repokey.outputs.have_key == 'true'
+        if: steps.repokey.outputs.have_key == 'true' && inputs.skip_repo != true && github.event_name == 'workflow_dispatch'
         env:
           # ⚠️ GitHub 自动签发的 github.token **只作用于当前仓库**，
           #    不能写 r3zound/tenda-repo。必须使用能写目标仓库 Contents 的 PAT。

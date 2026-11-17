@@ -140,6 +140,33 @@ for i in "${!NAMES[@]}"; do
   echo "      提供的包: $pkgnames"
 done
 
+# ---- 同名冲突清理：feeds 里若有同名包，会把 package/ 直挂版挤掉 ------------
+# ⚠️ include/scan.mk 扫描 package/ 时同 PKG_NAME 只认一份，
+#    package/feeds/<feed>/<name> 按字母序先于 package/<name> 命中，
+#    于是 kconfig 里的 CONFIG_PACKAGE_<name> 指向 feeds 的官方版，
+#    直挂的移植版被静默丢弃 —— 编译全绿、抽查才发现装错版本。
+#    （mwan3 的判据就是这种「装错版本」：/usr/sbin/mwan3 在，
+#      但 nft 移植版才有的 mwan3-diag / mwan3ct 不在。）
+for i in "${!NAMES[@]}"; do
+  n="${NAMES[$i]}"
+  for f in "$SRC"/package/feeds/*/"$n"; do
+    [ -e "$f" ] || continue
+    ( cd "$SRC" && ./scripts/feeds uninstall "$n" >/dev/null 2>&1 ) || true
+    if [ -e "$f" ]; then rm -rf "$f"; fi
+    info "  feeds 里有同名包 $n，已移除（保留 package/$n 直挂版）"
+  done
+done
+
+# ---- 断言：直挂版必须是唯一来源，且 Makefile 还在 ---------------------------
+for i in "${!NAMES[@]}"; do
+  n="${NAMES[$i]}"
+  if ls "$SRC"/package/feeds/*/"$n" >/dev/null 2>&1; then
+    die "feeds 里仍存在同名包 $n —— 会覆盖 package/$n 直挂版"
+  fi
+  [ -f "$SRC/package/$n/Makefile" ] || die "package/$n/Makefile 不见了"
+done
+ok "无同名 feeds 包冲突（${#NAMES[@]} 个直挂包均为唯一来源）"
+
 # ---- 生成 package/ 清单，供 gen-config 阶段核对 ----------------------------
 {
   echo "# 由 scripts/fetch-extra-packages.sh 自动生成 —— 请勿手工编辑"
