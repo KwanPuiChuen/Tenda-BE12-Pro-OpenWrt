@@ -140,7 +140,7 @@ if [ -f tmp/.config-package.in ]; then
   echo "  ── grep PACKAGE_zerotier ──"
   grep -n "PACKAGE_zerotier" tmp/.config-package.in | head -5 | sed 's/^/     /' || echo "     <未找到 PACKAGE_zerotier>"
   echo "  ── PACKAGE_zerotier 段落 ──"
-  grep -n -A12 "config PACKAGE_zerotier" tmp/.config-package.in | head -16 | sed 's/^/     /'
+  grep -n -A12 "config PACKAGE_zerotier" tmp/.config-package.in 2>/dev/null | head -16 | sed 's/^/     /' || true
   echo "  ── 依赖符号定义计数 ──"
   for s in libminiupnpc libnatpmp libatomic kmod-tun ip libstdcpp libpthread; do
     c="$(grep -c "config PACKAGE_${s}$" tmp/.config-package.in || true)"
