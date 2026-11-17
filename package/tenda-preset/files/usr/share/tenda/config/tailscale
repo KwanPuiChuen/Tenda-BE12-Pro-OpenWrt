@@ -1,0 +1,23 @@
+# =============================================================================
+# /etc/config/tailscale（luci-app-tailscale-community，实机 2026-11-17）
+# ⚠️ 不含 tailscaled.state：节点身份属敏感数据，刷机后需重新登录，
+#    或从私有备份还原 /etc/tailscale/tailscaled.state。
+# =============================================================================
+
+config settings 'settings'
+	option log_stderr '1'
+	option log_stdout '1'
+	option port '41641'
+	option state_file '/etc/tailscale/tailscaled.state'
+	option fw_mode 'nftables'
+	list advertise_routes '192.168.100.0/24'
+	option service_enabled '1'
+	option accept_routes '1'
+	option advertise_exit_node '0'
+	option exit_node_allow_lan_access '0'
+	option runwebclient '0'
+	option nosnat '0'
+	option shields_up '0'
+	option ssh '0'
+	option dns_mode 'disabled'
+	option enable_relay '0'

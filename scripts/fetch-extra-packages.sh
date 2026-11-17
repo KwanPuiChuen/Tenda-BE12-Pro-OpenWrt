@@ -65,6 +65,7 @@ read_lock() {
 read_lock THEME_ARGON  || true
 read_lock ARGON_CFG    || true
 read_lock THEME_AURORA  || true
+read_lock MWAN3         || true   # nft 版 mwan3，双 WAN 负载均衡
 
 [ "${#NAMES[@]}" -gt 0 ] || die "versions.lock 里一个 PKG_NAME_* 都没读到"
 

@@ -122,6 +122,14 @@ ok "feeds 安装完成"
 step "挂载第三方包"
 "$ROOT/scripts/fetch-extra-packages.sh" "$SRC" || die "第三方包挂载失败"
 
+# ---- 2.55 注入本地凭据（可选）----------------------------------------------
+# 有 preset/secrets.env 就把它变成固件里的 /usr/share/tenda/secrets.env，
+# 首启由 99-tenda-preset 读取并移出 /usr/share；没有则产出无凭据固件。
+# 想强制不打包：KEEP_SECRETS=0 ./scripts/build.sh
+step "注入本地凭据"
+"$ROOT/scripts/inject-secrets.sh"
+ok "凭据处理完成（未回显任何值）"
+
 # ---- 2.6 挂载预置配置包 ----------------------------------------------------
 # OpenWrt 没有 FILES_DIR 这种自定义 rootfs 注入机制，想往镜像里塞文件
 # 正规做法就是做一个包。本包由 package/tenda-preset 提供，内容来自 files/。
@@ -145,7 +153,10 @@ step "校验关键包"
 cd "$SRC"
 CHECK_FAIL=0
 for p in luci luci-base luci-theme-bootstrap luci-theme-argon luci-theme-aurora \
-         luci-app-argon-config luci-app-frpc frpc tenda-preset; do
+         luci-app-argon-config luci-app-frpc frpc tenda-preset \
+         mwan3 luci-app-mwan3 tailscale luci-app-tailscale-community \
+         zerotier luci-app-statistics luci-app-wol etherwake \
+         luci-app-attendedsysupgrade; do
   if grep -qE "^CONFIG_PACKAGE_${p}=y" .config; then
     ok "$p"
   else
@@ -160,7 +171,10 @@ else
   warn "CONFIG_LUCI_LANG_zh_Hans 未启用"
   CHECK_FAIL=1
 fi
-for p in mwan3 passwall sing-box xray; do
+# ⚠️ 2026-11-17：mwan3 已由「必须排除」改为「必须包含」——
+#    实机 192.168.100.254 用 mwan3 做双 WAN 负载均衡（电信:移动 3:1），
+#    预置的 /etc/config/mwan3 与 LuCI 菜单都依赖它，缺了会白跑 80 分钟。
+for p in passwall sing-box xray; do
   if grep -qE "^CONFIG_PACKAGE_${p}=y" .config; then
     warn "$p 不该在镜像里，却进了 .config"
     CHECK_FAIL=1
@@ -177,8 +191,10 @@ done
 #    99-tenda-custom、install-mwan3.sh 全都没有，刷完是官方默认 192.168.1.1。
 #    现在预置配置由 package/tenda-preset 真正打进固件（见上面「挂载预置配置包」）。
 step "确认预置文件已入包"
-for f in etc/config/network etc/config/firewall etc/config/dhcp \
+for f in etc/config/network etc/config/wireless etc/config/firewall etc/config/dhcp \
          etc/config/system etc/uci-defaults/99-tenda-custom \
+         etc/uci-defaults/99-tenda-preset usr/share/tenda/config/luci \
+         usr/share/tenda/config/mwan3 usr/share/tenda/config/collectd \
          usr/lib/tenda/install-mwan3.sh; do
   if [ -e "$SRC/package/tenda-preset/files/$f" ]; then
     ok "  $f"

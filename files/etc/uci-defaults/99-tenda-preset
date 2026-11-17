@@ -1,0 +1,175 @@
+#!/bin/sh
+# =============================================================================
+# /etc/uci-defaults/99-tenda-preset
+# -----------------------------------------------------------------------------
+# 首次开机：把 /usr/share/tenda/config/ 下的完整预置配置落到 /etc/config/，
+# 并注入构建时打包进来的本地凭据（/usr/share/tenda/secrets.env）。
+#
+# 为什么不用「直接把这些文件打进 /etc/config」：
+#   apk 严格校验文件归属。dhcp 属 dnsmasq、firewall 属 firewall4、
+#   luci 属 luci-base、dropbear 属 dropbear……别的包直接覆盖会报
+#     ERROR: trying to overwrite etc/config/xxx owned by yyy
+#   然后 package/install 整体失败，固件产不出来（Run #9 实测）。
+#   所以先放在本包自己的目录，首启时 cp —— 这是普通文件写入，不走归属检查，
+#   与 install_repo_key 安装 apk 公钥同一个思路。
+#
+# 执行顺序：本文件名 "99-tenda-preset" 排在 "99-tenda-custom" 之后
+#   （p > c），因此这里写入的值是最终值。
+# =============================================================================
+
+. /lib/functions.sh
+
+SRC=/usr/share/tenda/config
+DST=/etc/config
+SECRETS=/usr/share/tenda/secrets.env
+TAG=tenda-preset
+
+log()  { logger -t "$TAG" -p user.info  "$*"; echo "$*"; }
+warn() { logger -t "$TAG" -p user.warn  "! $*"; echo "! $*"; }
+
+# -----------------------------------------------------------------------------
+# 1. 落配置
+# -----------------------------------------------------------------------------
+apply_file() {
+	local f="$1"
+	[ -f "$SRC/$f" ] || return 0
+	if [ -f "$DST/$f" ] && cmp -s "$SRC/$f" "$DST/$f"; then
+		return 0
+	fi
+	if cp -f "$SRC/$f" "$DST/$f" 2>/dev/null; then
+		chmod 0644 "$DST/$f" 2>/dev/null
+		log "已写入 /etc/config/$f"
+	else
+		warn "/etc/config/$f 写入失败"
+	fi
+}
+
+for f in luci argon mwan3 tailscale zerotier frpc collectd \
+         luci_statistics luci-wol etherwake attendedsysupgrade uhttpd; do
+	apply_file "$f"
+done
+
+# -----------------------------------------------------------------------------
+# 2. 补齐与实机一致的 dhcp / firewall 细项（99-tenda-custom 已写过基础项）
+#    全部先 delete 再 set/add_list，保证重复执行不产生重复条目。
+# -----------------------------------------------------------------------------
+uci -q batch <<-'UCI' 2>/dev/null || warn "dhcp/firewall 细项写入部分失败（可忽略）"
+	delete dhcp.lan.ra_flags
+	add_list dhcp.lan.ra_flags='managed-config'
+	add_list dhcp.lan.ra_flags='other-config'
+	set dhcp.lan.ra_slaac='1'
+	set dhcp.lan.ndp='hybrid'
+	set dhcp.lan.force='1'
+	set dhcp.lan.ra='server'
+	set dhcp.lan.dhcpv6='server'
+	set dhcp.dnsmasq.cachesize='1000'
+	set dhcp.dnsmasq.filter_aaaa='0'
+	set dhcp.dnsmasq.filter_a='0'
+	set dhcp.dnsmasq.ednspacket_max='1232'
+	set firewall.@defaults[0].fullcone='1'
+	set firewall.@defaults[0].flow_offloading='0'
+	set firewall.@defaults[0].flow_offloading_hw='0'
+UCI
+
+# tailscale 区与转发（按 name 反查，已存在则跳过）
+if [ -z "$(uci -q show firewall | sed -n "s/^firewall\.\(@zone\[[0-9]\+\]\)\.name='tailscale'$/\1/p")" ] && \
+   ! uci -q get firewall.tailscale >/dev/null 2>&1; then
+	uci -q batch <<-'UCI' 2>/dev/null || warn "tailscale 防火墙区写入失败"
+		set firewall.tailscale='zone'
+		set firewall.tailscale.name='tailscale'
+		set firewall.tailscale.input='ACCEPT'
+		set firewall.tailscale.output='ACCEPT'
+		set firewall.tailscale.forward='ACCEPT'
+		set firewall.tailscale.masq='1'
+		set firewall.tailscale.mtu_fix='1'
+		add_list firewall.tailscale.network='tailscale'
+		set firewall.ts_to_lan='forwarding'
+		set firewall.ts_to_lan.src='tailscale'
+		set firewall.ts_to_lan.dest='lan'
+		set firewall.lan_to_ts='forwarding'
+		set firewall.lan_to_ts.src='lan'
+		set firewall.lan_to_ts.dest='tailscale'
+		set firewall.ts_to_wan='forwarding'
+		set firewall.ts_to_wan.src='tailscale'
+		set firewall.ts_to_wan.dest='wan'
+	UCI
+fi
+
+# 实机存在的 IPSec 放行规则（与固件里的 strongswan 方案配套，缺失不影响 LAN）
+if ! uci -q get firewall.allow_ipsec_esp >/dev/null 2>&1; then
+	uci -q batch <<-'UCI' 2>/dev/null || true
+		set firewall.allow_ipsec_esp='rule'
+		set firewall.allow_ipsec_esp.name='Allow-IPSec-ESP'
+		set firewall.allow_ipsec_esp.src='wan'
+		set firewall.allow_ipsec_esp.dest='lan'
+		set firewall.allow_ipsec_esp.proto='esp'
+		set firewall.allow_ipsec_esp.target='ACCEPT'
+		set firewall.allow_isakmp='rule'
+		set firewall.allow_isakmp.name='Allow-ISAKMP'
+		set firewall.allow_isakmp.src='wan'
+		set firewall.allow_isakmp.dest='lan'
+		set firewall.allow_isakmp.dest_port='500'
+		set firewall.allow_isakmp.proto='udp'
+		set firewall.allow_isakmp.target='ACCEPT'
+	UCI
+fi
+
+# -----------------------------------------------------------------------------
+# 3. 注入本地凭据（构建时打包的 secrets.env；公开构建不含此文件）
+#    ⚠️ 只从文件读取，绝不写入日志；用完即移出 /usr/share 到 /tmp（重启清空）
+# -----------------------------------------------------------------------------
+if [ -f "$SECRETS" ]; then
+	# shellcheck disable=SC1090
+	. "$SECRETS"
+
+	[ -n "$PPPOE_USER" ] && uci -q set network.wan2.username="$PPPOE_USER"
+	[ -n "$PPPOE_PASS" ] && uci -q set network.wan2.password="$PPPOE_PASS"
+
+	if [ -n "$WIFI_PSK" ]; then
+		uci -q set wireless.default_radio0.key="$WIFI_PSK"
+		uci -q set wireless.default_radio1.key="$WIFI_PSK"
+	fi
+	[ -n "$WIFI_SSID" ] && {
+		uci -q set wireless.default_radio0.ssid="$WIFI_SSID"
+		uci -q set wireless.default_radio1.ssid="$WIFI_SSID"
+	}
+	[ -n "$WOL_MAC" ] && uci -q set "luci-wol.@target[0].mac=$WOL_MAC"
+
+	# root 密码：优先用现成 hash（$5$.../$1$...），否则用明文经 openssl 生成
+	if [ -n "$ROOT_PASSWORD_HASH" ]; then
+		sed -i "s|^root:[^:]*:|root:${ROOT_PASSWORD_HASH}:|" /etc/shadow 2>/dev/null
+	elif [ -n "$ROOT_PASSWORD" ]; then
+		hash="$(openssl passwd -5 "$ROOT_PASSWORD" 2>/dev/null)"
+		[ -n "$hash" ] && sed -i "s|^root:[^:]*:|root:${hash}:|" /etc/shadow 2>/dev/null
+	fi
+
+	uci -q commit network
+	uci -q commit wireless
+	uci -q commit luci-wol
+	log "已注入本地凭据（PPPoE / WiFi / WOL / root）"
+
+	mv -f "$SECRETS" /tmp/.tenda-secrets.$$ 2>/dev/null && chmod 600 "/tmp/.tenda-secrets.$$" 2>/dev/null
+else
+	log "无 secrets.env（公开构建）：WiFi 为占位密码，PPPoE 凭据留空，需手工填写"
+fi
+
+# -----------------------------------------------------------------------------
+# 4. 提交并应用
+# -----------------------------------------------------------------------------
+uci -q commit
+reload_config 2>/dev/null || true
+/etc/init.d/log restart 2>/dev/null || true
+
+# 自检
+ok=0
+[ "$(uci -q get luci.main.mediaurlbase)" = "/luci-static/aurora" ] && ok=$((ok+1))
+[ "$(uci -q get argon.@global[0].online_wallpaper)" = "bing" ] && ok=$((ok+1))
+[ "$(uci -q get mwan3.wan_m1_w3.weight)" = "3" ] && ok=$((ok+1))
+[ "$(uci -q get tailscale.settings.port)" = "41641" ] && ok=$((ok+1))
+if [ "$ok" -eq 4 ]; then
+	log "预置配置应用完成（4/4 项自检通过）"
+else
+	warn "预置配置自检 $ok/4，请进 LuCI 复核"
+fi
+
+exit 0

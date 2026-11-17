@@ -31,8 +31,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=tenda-preset
-PKG_VERSION:=1.1.0
-PKG_RELEASE:=1
+PKG_VERSION:=1.2.0
+PKG_RELEASE:=2
 PKG_LICENSE:=Apache-2.0
 
 PKG_MAINTAINER:=Tenda BE12 Pro OpenWrt
@@ -72,12 +72,16 @@ define Package/tenda-preset/install
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_DIR) $(1)/usr/lib/tenda
+	$(INSTALL_DIR) $(1)/usr/share/tenda/config
 	$(CP) ./files/etc/config/network         $(1)/etc/config/
 	$(CP) ./files/etc/config/wireless        $(1)/etc/config/
 	$(CP) ./files/etc/uci-defaults/*          $(1)/etc/uci-defaults/
 	$(CP) ./files/usr/lib/tenda/*             $(1)/usr/lib/tenda/
+	$(CP) ./files/usr/share/tenda/config/*    $(1)/usr/share/tenda/config/
 	@chmod 0755 $(1)/etc/uci-defaults/99-tenda-custom
+	@chmod 0755 $(1)/etc/uci-defaults/99-tenda-preset
 	@chmod 0755 $(1)/usr/lib/tenda/install-mwan3.sh
+	@chmod 0644 $(1)/usr/share/tenda/config/*
 endef
 
 # ⚠️ 这里只列 network 和 wireless —— 这两者**都没有任何已安装包声明归属**。

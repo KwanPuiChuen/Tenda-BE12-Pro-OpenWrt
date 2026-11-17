@@ -1,0 +1,92 @@
+# /etc/config/mwan3（实机 2026-11-17 导出；等价于 /usr/lib/tenda/install-mwan3.sh 生成结果）
+# 双 WAN 负载均衡：电信:移动 ≈ 3:1，mobile 策略给游戏/远程/P2P，443 会话粘性
+# 接口名可通过环境变量覆盖：WAN_A= wan= WAN_B= wan2= WAN_A_WEIGHT= WAN_B_WEIGHT=
+# ⚠️ mwan3 会静默跳过长度 > 15 字符的段名，改名后请用 --check 复查。
+
+# ---- Interfaces ----
+config interface 'wan'
+	option enabled '1'
+	list track_ip '223.5.5.5'
+	list track_ip '119.29.29.29'
+	option family 'ipv4'
+	option reliability '1'
+	option count '1'
+	option timeout '2'
+	option interval '5'
+	option down '3'
+	option up '3'
+	option size '56'
+	option max_ttl '60'
+	option check_quality '0'
+
+config interface 'wan2'
+	option enabled '1'
+	list track_ip '223.5.5.5'
+	list track_ip '119.29.29.29'
+	option family 'ipv4'
+	option reliability '1'
+	option count '1'
+	option timeout '2'
+	option interval '5'
+	option down '3'
+	option up '3'
+	option size '56'
+	option max_ttl '60'
+	option check_quality '0'
+
+# ---- Members（权重按带宽比：电信 1000M : 移动 300M ≈ 3:1）----
+config member 'wan_m1_w3'
+	option interface 'wan'
+	option metric '1'
+	option weight '3'
+
+config member 'wan2_m2_w1'
+	option interface 'wan2'
+	option metric '2'
+	option weight '1'
+
+# ---- Policies ----
+config policy 'balanced'
+	list use_member 'wan_m1_w3'
+	list use_member 'wan2_m2_w1'
+	option last_resort 'default'
+
+# mobile：移动线是 PPPoE 单层 NAT，NAT 类型干净，给游戏/远程/P2P 用
+config policy 'mobile'
+	list use_member 'wan2_m2_w1'
+	option last_resort 'default'
+
+config policy 'telecom'
+	list use_member 'wan_m1_w3'
+	option last_resort 'default'
+
+config policy 'failover'
+	list use_member 'wan_m1_w3'
+	list use_member 'wan2_m2_w1'
+	option last_resort 'unreachable'
+
+# ---- Rules（顺序即优先级，从上到下）----
+config rule 'r_gaming'
+	option src_zone 'lan'
+	option proto 'udp'
+	option dest_port '27015:27030,5000:5010,25565:25575'
+	option use_policy 'mobile'
+
+config rule 'r_remote'
+	option src_zone 'lan'
+	option proto 'tcp'
+	option dest_port '22,3389,5900,32400'
+	option use_policy 'mobile'
+
+# HTTPS 会话粘性：同一连接不跨线路
+config rule 'r_https'
+	option src_zone 'lan'
+	option proto 'tcp'
+	option dest_port '443'
+	option sticky '1'
+	option use_policy 'balanced'
+
+config rule 'r_default'
+	option src_zone 'lan'
+	option dest_ip '0.0.0.0/0'
+	option use_policy 'balanced'

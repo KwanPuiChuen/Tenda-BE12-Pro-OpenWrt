@@ -112,18 +112,54 @@ MT7987 这颗 SoC 在 25.12 里是支持的（bpi-r4-lite、routerich_be7200 等
 
 ## 刷机后
 
-- 管理地址：`http://192.168.100.254`（root，密码为空）
-- 无线预置：`ASUS` / `abcd1234.`（**这是公开仓库里的默认密码，请尽快改掉**）
-- 双 WAN：电信走 `eth2`（光猫 DHCP），移动走 `lan3`（PPPoE）
-  → **PPPoE 账号密码刷机后要在 LuCI 里手工填**，仓库不含任何宽带凭据
-- 装多 WAN 负载均衡：
+管理地址 `http://192.168.100.254`，双 WAN（电信 `eth2` / 移动 `lan3` PPPoE）、
+主题、插件、mwan3 策略**都已预置**，正常情况下刷完即用。
+
+- **无线**：`ASUS`
+  - 自建固件（本地有 `preset/secrets.env`）：密码就是你自己的
+  - 公开 Action 产物：密码是占位符 `CHANGE_ME_WIFI_PSK`，
+    首启日志会告警，请先进 LuCI 改掉（否则等于半开放网络）
+- **PPPoE**：自建固件已注入账号密码；公开产物为空，需在
+  LuCI → 网络 → 接口 → WAN2 填写
+- **mwan3**：已随固件安装并预置权重 3:1（电信:移动），无需再手动装
   ```sh
-  sh /usr/lib/tenda/install-mwan3.sh     # 装完自动写配置（权重 3:1）
-  sh /usr/lib/tenda/install-mwan3.sh --check   # 体检
+  mwan3 status                     # 两条线是否在线
+  sh /usr/lib/tenda/install-mwan3.sh --check   # 体检（脚本仍保留，可重写配置）
   ```
-  > 路由器下不动 GitHub Releases 时，用 PC 下载 `.apk` 再 `scp -O` 上去
-  > `apk add --allow-untrusted`。软件源用中科大（`mirrors.ustc.edu.cn/openwrt`），
-  > 清华/阿里云**都没有 snapshots**，填了装不上包。
+- 预置是否生效，看日志：`logread -e tenda-preset`，
+  出现「预置配置应用完成（4/4 项自检通过）」即正常
+- 想恢复刷机前的完整状态（含 tailscale 节点身份、SSH 主机密钥）：
+  见下节「配置预设与还原」
+
+---
+
+## 配置预设与还原
+
+在用的路由器是 `192.168.100.254`（内核 6.18.54，262 个包）。它的配置按
+「能固化就固化、不能固化就备份还原」分成两半：
+
+| 部分 | 内容 | 位置 |
+|---|---|---|
+| 进固件 | 网络/无线/防火墙/主题/插件配置、双 WAN 策略 | `files/` + `package/tenda-preset/` |
+| 进固件（可选） | PPPoE、WiFi、root 密码、WOL MAC | `preset/secrets.env` → 构建时注入 |
+| 不进固件 | tailscale/zerotier 身份、SSH 主机密钥、shadow、rrd 历史 | `preset/backup/<时间>/sensitive/` |
+
+```sh
+# 1) 带自己的凭据编译
+cp preset/secrets.env.example preset/secrets.env && vi preset/secrets.env
+./scripts/build.sh
+
+# 2) 刷机前抓快照
+ROUTER_PASS='...' ./preset/scripts/backup-router-config.sh
+
+# 3) 刷机后还原（先 --dry-run 看差异）
+ROUTER_PASS='...' ./preset/scripts/restore-router-config.sh preset/backup/<时间> --dry-run
+ROUTER_PASS='...' ./preset/scripts/restore-router-config.sh preset/backup/<时间>
+```
+
+详细说明（三层处置策略、注入机制、验证清单、已知边界）见
+**[preset/README.md](preset/README.md)**；
+刷机前的设备原貌（脱敏）见 `docs/config-snapshot/`。
 
 ---
 
@@ -131,7 +167,7 @@ MT7987 这颗 SoC 在 25.12 里是支持的（bpi-r4-lite、routerich_be7200 等
 
 | 组件 | 状态 | 原因 |
 |------|------|------|
-| mwan3 | ❌ 不打进固件 | 官方版是 iptables 实现，在 fw4 上负载均衡已失效。改用 [dl12345/mwan3](https://github.com/dl12345/mwan3) 原生 nft 版，刷机后手动装 |
+| mwan3 | ✅ 已内置 | 官方版是 iptables 实现，在 fw4 上负载均衡已失效。改用 [dl12345/mwan3](https://github.com/dl12345/mwan3) 原生 nft 版，由 `scripts/fetch-extra-packages.sh` 直挂 `package/mwan3`，配置随固件预置 |
 | passwall | ❌ 已排除 | 依赖解压 >150MB，超出 60MB overlay |
 | 宽带凭据 | ❌ 永不进仓库 | 仓库公开 |
 

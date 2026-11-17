@@ -1,12 +1,14 @@
 # =============================================================================
 # /etc/config/network — Tenda BE12 Pro 预置网络配置
 # -----------------------------------------------------------------------------
-# ⚠️ 本文件不含任何宽带账号密码（仓库是公开的，绝不能写入凭据）。
-#    两条 WAN 的 PPPoE 凭据需在刷机后于 LuCI 中手工填写。
+# 来源：实机 192.168.100.254 uci 导出（2026-11-17 采集），已脱敏：
+#   宽带账号 / 密码一律留空，构建时由 preset/scripts/inject-secrets.sh
+#   从本地 secrets.env 或 CI Secrets 注入。
 #
-# 接口映射依据官方 board.json（见 README §3.3）：
-#   LAN = lan3 + lan4 + lan5 + eth1
-#   WAN = eth2
+# 接口映射（依据 board.json）：
+#   LAN = lan4 + lan5 + eth1（br-lan）
+#   WAN1 = eth2（2.5G，电信光猫路由模式 → DHCP）
+#   WAN2 = lan3（1G，移动光猫桥接 → PPPoE 直拨）
 # =============================================================================
 
 config interface 'loopback'
@@ -15,12 +17,6 @@ config interface 'loopback'
 	option ipaddr '127.0.0.1'
 	option netmask '255.0.0.0'
 
-# -----------------------------------------------------------------------------
-# LAN
-#   eth1 = 2.5G（SoC 内部 PHY）
-#   lan4 / lan5 = 1G（AN8855AE 交换芯片下挂）
-#   lan3 留作 WAN2，不加入 LAN
-# -----------------------------------------------------------------------------
 config interface 'lan'
 	option device 'br-lan'
 	option proto 'static'
@@ -39,48 +35,36 @@ config device
 	option stp '1'
 	option igmp_snooping '1'
 
-# -----------------------------------------------------------------------------
-# WAN1 — 电信 1000M，走 eth2 (2.5G)
-#   光猫为路由模式 → DHCP 取址 → ⚠️ 双重 NAT
-#   端口转发需在光猫上额外配置一次
-# -----------------------------------------------------------------------------
+# ---- WAN1：电信 1000M（eth2 / DHCP）----
 config interface 'wan'
 	option device 'eth2'
 	option proto 'dhcp'
 	option metric '10'
 
-# -----------------------------------------------------------------------------
-# WAN2 — 移动 300M，走 lan3 (1G)
-#   光猫已桥接 → 路由器 PPPoE 直拨 → ✅ 单层 NAT
-#   ⚠️ 账号密码留空，刷机后手工填写：
-#     uci set network.wan2.username='你的移动宽带账号'
-#     uci set network.wan2.password='你的移动宽带密码'
-#     uci commit network && reload_config
-#   ⚠️ 必须用 reload_config，不要用 network restart（/etc/init.d/network 那条）。
-#      本机 AN8855AE 交换芯片在 SNAPSHOT 固件下对整栈软重置支持不良：
-#      整栈重启之后 LAN 口失联，必须断电才能恢复（见 README §8）。
-#      reload_config 是增量生效，安全。
-# -----------------------------------------------------------------------------
+# ---- WAN2：移动 300M（lan3 / PPPoE）----
+# 凭据由注入脚本填充；手工填写命令：
+#   uci set network.wan2.username='账号'
+#   uci set network.wan2.password='密码'
+#   uci commit network && reload_config      # 切勿用 network restart，见 README §8
 config interface 'wan2'
 	option device 'lan3'
 	option proto 'pppoe'
-	option username ''
-	option password ''
 	option metric '20'
 	option ipv6 '0'
+	option username ''
+	option password ''
 
-# PPPoE 性能调优
 config pppoless 'wan2_lease'
 	list interface 'wan2'
 
-# -----------------------------------------------------------------------------
-# IPv6：默认关闭。电信走 DHCP 无前缀委派，移动为 PPPoE，双 WAN 场景下 IPv6
-# 会引入额外的路由与地址管理复杂度。如需启用，见 README §5.5 备注。
-# -----------------------------------------------------------------------------
+# ---- IPv6：保持关闭（双 WAN 场景复杂度高，见 README §5.5）----
 
-# -----------------------------------------------------------------------------
-# 设备定义
-# -----------------------------------------------------------------------------
+# ---- Tailscale 虚拟接口（luci-app-tailscale-community 使用）----
+config interface 'tailscale'
+	option proto 'none'
+	option device 'tailscale0'
+	option metric '0'
+
 config device
 	option name 'lan3'
 	option type 'ethernet'

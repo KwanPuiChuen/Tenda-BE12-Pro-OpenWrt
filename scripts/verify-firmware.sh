@@ -122,8 +122,16 @@ while IFS='|' read -r label path; do
   if [ -e "$R/$path" ]; then ok_ "$label"; else bad_ "$label  ($path)"; fi
 done <<'EOF'
 预置网段+双WAN /etc/config/network|/etc/config/network
+预置无线 /etc/config/wireless|/etc/config/wireless
 首次启动脚本 99-tenda-custom|/etc/uci-defaults/99-tenda-custom
+预置配置脚本 99-tenda-preset|/etc/uci-defaults/99-tenda-preset
+插件预置目录|/usr/share/tenda/config/luci
+插件预置 mwan3|/usr/share/tenda/config/mwan3
+插件预置 主题 argon|/usr/share/tenda/config/argon
+插件预置 tailscale|/usr/share/tenda/config/tailscale
+插件预置 统计 collectd|/usr/share/tenda/config/collectd
 mwan3 安装助手|/usr/lib/tenda/install-mwan3.sh
+mwan3 守护进程|/usr/sbin/mwan3
 bootstrap 主题|/www/luci-static/bootstrap
 argon 主题|/www/luci-static/argon
 aurora 主题|/www/luci-static/aurora

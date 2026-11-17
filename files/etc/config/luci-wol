@@ -1,0 +1,9 @@
+# /etc/config/luci-wol（实机 2026-11-17）
+# ⚠️ 目标 MAC 已脱敏：构建时由 secrets 注入 WOL_MAC，或在 LuCI「网络唤醒」内重填
+config wol 'defaults'
+
+config target
+	option name 'H610'
+	option mac 'AA:BB:CC:DD:EE:FF'
+	option iface 'br-lan'
+	option broadcast '1'

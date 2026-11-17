@@ -1,0 +1,826 @@
+# uci export 脱敏快照（2026-11-17，Tenda BE12 Pro @ 192.168.100.254）
+# -----------------------------------------------------------------------------
+# 脱敏规则：password / key / username / secret / token / psk / mac 等一律替换为
+# <REDACTED>；宽带账号替换为 <REDACTED_USER>；不含 /etc/shadow、dropbear 密钥、
+# tailscale state、zerotier identity。
+# 用途：留档「刷机前设备长什么样」，便于刷后逐项核对，不作为可直接导入的配置。
+# 原始未脱敏快照见 preset/backup/<时间>/（不入库）。
+# =============================================================================
+
+package argon
+
+config global
+	option primary '#5e72e4'
+	option dark_primary '#483d8b'
+	option blur '10'
+	option blur_dark '10'
+	option transparency '0.5'
+	option transparency_dark '0.5'
+	option mode 'normal'
+	option online_wallpaper 'bing'
+
+package attendedsysupgrade
+
+config server 'server'
+	option url 'https://sysupgrade.openwrt.org'
+
+config client 'client'
+	option upgrade_packages '1'
+	option auto_search '0'
+	option advanced_mode '0'
+	option login_check_for_upgrades '0'
+
+package collectd
+
+config globals 'globals'
+	option alt_config_file '/etc/collectd.conf'
+
+package dhcp
+
+config dnsmasq
+	option domainneeded '1'
+	option boguspriv '1'
+	option filterwin2k '0'
+	option localise_queries '1'
+	option rebind_protection '1'
+	option rebind_localhost '1'
+	option local '/lan/'
+	option domain 'lan'
+	option expandhosts '1'
+	option nonegcache '0'
+	option cachesize '1000'
+	option authoritative '1'
+	option readethers '1'
+	option leasefile '/tmp/dhcp.leases'
+	option resolvfile '/tmp/resolv.conf.d/resolv.conf.auto'
+	option nonwildcard '1'
+	option localservice '1'
+	option ednspacket_max '1232'
+	option filter_aaaa '0'
+	option filter_a '0'
+
+config dhcp 'lan'
+	option interface 'lan'
+	option start '100'
+	option limit '100'
+	option leasetime '12h'
+	option ra 'server'
+	option dhcpv4 'server'
+	option dhcpv6 'server'
+	option ra_slaac '1'
+	list ra_flags 'managed-config'
+	list ra_flags 'other-config'
+	option ndp 'hybrid'
+	option force '1'
+
+config dhcp 'wan'
+	option interface 'wan'
+	option ignore '1'
+
+config odhcpd 'odhcpd'
+	option maindhcp '0'
+
+package dropbear
+
+config dropbear 'main'
+	option enable '1'
+	option PasswordAuth 'on'
+	option RootPasswordAuth 'on'
+	option Port '22'
+
+package etherwake
+
+config etherwake 'setup'
+	option pathes '/usr/bin/etherwake /usr/bin/ether-wake'
+	option sudo 'off'
+	option broadcast 'off'
+
+config target
+	option name 'example'
+	option mac '00:11:22:33:44:55'
+	option password '<REDACTED>'
+	option wakeonboot 'off'
+
+package firewall
+
+config defaults
+	option syn_flood '1'
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option drop_invalid '1'
+	option family 'ipv4'
+	option flow_offloading '0'
+	option flow_offloading_hw '0'
+	option fullcone '1'
+
+config zone
+	option name 'lan'
+	option network 'lan'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'ACCEPT'
+
+config zone
+	option name 'wan'
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option masq '1'
+	option mtu_fix '1'
+	list network 'wan'
+	list network 'wan2'
+
+config forwarding
+	option src 'lan'
+	option dest 'wan'
+
+config rule
+	option name 'Allow-DHCP-Renew'
+	option src 'wan'
+	option proto 'udp'
+	option dest_port '68'
+	option target 'ACCEPT'
+	option family 'ipv4'
+
+config rule
+	option name 'Allow-Ping'
+	option src 'wan'
+	option proto 'icmp'
+	option icmp_type 'echo-request'
+	option family 'ipv4'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-IGMP'
+	option src 'wan'
+	option proto 'igmp'
+	option family 'ipv4'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-DHCPv6'
+	option src 'wan'
+	option proto 'udp'
+	option dest_port '546'
+	option family 'ipv6'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-MLD'
+	option src 'wan'
+	option proto 'icmp'
+	option src_ip 'fe80::/10'
+	list icmp_type '130/0'
+	list icmp_type '131/0'
+	list icmp_type '132/0'
+	list icmp_type '143/0'
+	option family 'ipv6'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-ICMPv6-Input'
+	option src 'wan'
+	option proto 'icmp'
+	list icmp_type 'echo-request'
+	list icmp_type 'echo-reply'
+	list icmp_type 'destination-unreachable'
+	list icmp_type 'packet-too-big'
+	list icmp_type 'time-exceeded'
+	list icmp_type 'bad-header'
+	list icmp_type 'unknown-header-type'
+	list icmp_type 'router-solicitation'
+	list icmp_type 'neighbour-solicitation'
+	list icmp_type 'router-advertisement'
+	list icmp_type 'neighbour-advertisement'
+	option limit '1000/sec'
+	option family 'ipv6'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-ICMPv6-Forward'
+	option src 'wan'
+	option dest '*'
+	option proto 'icmp'
+	list icmp_type 'echo-request'
+	list icmp_type 'echo-reply'
+	list icmp_type 'destination-unreachable'
+	list icmp_type 'packet-too-big'
+	list icmp_type 'time-exceeded'
+	list icmp_type 'bad-header'
+	list icmp_type 'unknown-header-type'
+	option limit '1000/sec'
+	option family 'ipv6'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-IPSec-ESP'
+	option src 'wan'
+	option dest 'lan'
+	option proto 'esp'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-ISAKMP'
+	option src 'wan'
+	option dest 'lan'
+	option dest_port '500'
+	option proto 'udp'
+	option target 'ACCEPT'
+
+config zone 'tailscale'
+	option name 'tailscale'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'ACCEPT'
+	option masq '1'
+	option mtu_fix '1'
+	list network 'tailscale'
+
+config forwarding 'ts_to_lan'
+	option src 'tailscale'
+	option dest 'lan'
+
+config forwarding 'lan_to_ts'
+	option src 'lan'
+	option dest 'tailscale'
+
+config forwarding 'ts_to_wan'
+	option src 'tailscale'
+	option dest 'wan'
+
+package frpc
+
+config init
+	option stdout '1'
+	option stderr '1'
+	option respawn '1'
+	option enabled '0'
+
+config conf 'common'
+	option server_addr '127.0.0.1'
+	option server_port '7000'
+	option authentication_method 'token'
+	option login_fail_exit 'true'
+	option protocol 'tcp'
+	option wire_protocol 'v1'
+	option tcp_mux 'true'
+	option tls_enable 'true'
+	option disable_custom_tls_first_byte 'true'
+	option admin_tls_enable 'false'
+	option pprof_enable 'false'
+	option log_file 'console'
+	option log_level 'info'
+	option log_max_days '3'
+
+config conf 'ssh'
+	option name 'ssh'
+	option type 'tcp'
+	option local_ip '127.0.0.1'
+	option local_port '22'
+	option remote_port '6000'
+	option enabled 'true'
+
+package luci
+
+config core 'main'
+	option lang 'auto'
+	option mediaurlbase '/luci-static/aurora'
+	option resourcebase '/luci-static/resources'
+	option ubuspath '/ubus/'
+	option pollinterval '5'
+
+config internal 'languages'
+	option zh_cn '简体中文 (Simplified Chinese)'
+
+config internal 'sauth'
+	option sessionpath '/tmp/luci-sessions'
+	option sessiontime '3600'
+
+config internal 'ccache'
+	option enable '1'
+
+config internal 'apply'
+	option rollback '90'
+	option holdoff '4'
+	option timeout '5'
+	option display '1.5'
+
+config internal 'diag'
+	option dns 'openwrt.org'
+	option ping 'openwrt.org'
+	option route 'openwrt.org'
+
+config themes 'themes'
+	option Aurora '/luci-static/aurora'
+	option Argon '/luci-static/argon'
+	option Bootstrap '/luci-static/bootstrap'
+	option BootstrapDark '/luci-static/bootstrap-dark'
+	option BootstrapLight '/luci-static/bootstrap-light'
+
+package luci-wol
+
+config wol 'defaults'
+
+config target
+	option name 'H610'
+	option mac '00:11:22:33:44:55'
+	option iface 'br-lan'
+	option broadcast '1'
+
+package luci_plugins
+
+config global 'global'
+
+package luci_statistics
+
+config statistics 'collectd'
+	option BaseDir '/var/run/collectd'
+	option PIDFile '/var/run/collectd.pid'
+	option PluginDir '/usr/lib/collectd'
+	option TypesDB '/usr/share/collectd/types.db'
+	option Interval '30'
+	option ReadThreads '2'
+
+config statistics 'rrdtool'
+	option default_timespan '2hour'
+	option image_width '600'
+	option image_height '150'
+	option image_path '/tmp/rrdimg'
+
+config statistics 'collectd_rrdtool'
+	option enable '1'
+	option DataDir '/tmp/rrd'
+	option RRARows '288'
+	option RRASingle '1'
+	option RRATimespans '2hour 1day 1week 1month 1year'
+	option backup '0'
+
+config statistics 'collectd_csv'
+	option enable '0'
+	option StoreRates '0'
+	option DataDir '/tmp'
+
+config statistics 'collectd_email'
+	option enable '0'
+	option SocketFile '/var/run/collectd/email.sock'
+	option SocketGroup 'nogroup'
+
+config statistics 'collectd_logfile'
+	option enable '0'
+	option LogLevel 'notice'
+	option File '/var/log/collectd.log'
+	option Timestamp '1'
+
+config statistics 'collectd_network'
+	option enable '0'
+
+config statistics 'collectd_syslog'
+	option enable '0'
+	option LogLevel 'warning'
+	option NotifyLevel 'WARNING'
+
+config statistics 'collectd_unixsock'
+	option enable '0'
+	option SocketFile '/var/run/collectd/query.sock'
+	option SocketGroup 'nogroup'
+
+config statistics 'collectd_apcups'
+	option enable '0'
+	option Host 'localhost'
+	option Port '3551'
+
+config statistics 'collectd_chrony'
+	option enable '0'
+	option Host '127.0.0.1'
+	option Port '323'
+	option Timeout '2'
+
+config statistics 'collectd_conntrack'
+	option enable '0'
+
+config statistics 'collectd_contextswitch'
+	option enable '0'
+
+config statistics 'collectd_cpu'
+	option enable '1'
+	option ReportByCpu '1'
+	option ReportByState '1'
+	option ShowIdle '0'
+	option ValuesPercentage '1'
+
+config statistics 'collectd_cpufreq'
+	option enable '0'
+
+config statistics 'collectd_curl'
+	option enable '0'
+
+config statistics 'collectd_df'
+	option enable '0'
+	option Devices '/dev/mtdblock/4'
+	option MountPoints '/overlay'
+	option FSTypes 'tmpfs'
+	option IgnoreSelected '0'
+	option ValuesPercentage '0'
+
+config statistics 'collectd_dhcpleases'
+	option enable '0'
+	option Path '/tmp/dhcp.leases'
+
+config statistics 'collectd_disk'
+	option enable '0'
+	option Disks 'hda1 hdb'
+	option IgnoreSelected '0'
+
+config statistics 'collectd_dns'
+	option enable '0'
+	option Interfaces 'br-lan'
+	option IgnoreSources '127.0.0.1'
+
+config statistics 'collectd_entropy'
+	option enable '0'
+
+config statistics 'collectd_exec'
+	option enable '0'
+
+config statistics 'collectd_interface'
+	option enable '1'
+	option Interfaces 'br-lan'
+	option IgnoreSelected '0'
+
+config statistics 'collectd_ipstatistics'
+	option enable '0'
+
+config statistics 'collectd_iptables'
+	option enable '0'
+
+config collectd_iptables_match
+	option table 'nat'
+	option chain 'luci_fw_postrouting'
+	option target 'MASQUERADE'
+	option source '192.168.1.0/24'
+	option outputif 'br-ff'
+	option name 'LAN-Clients traffic'
+
+config collectd_iptables_match
+	option chain 'luci_fw_postrouting'
+	option table 'nat'
+	option target 'MASQUERADE'
+	option source '10.61.230.0/24'
+	option outputif 'br-ff'
+	option name 'WLAN-Clients traffic'
+
+config statistics 'collectd_irq'
+	option enable '0'
+	option Irqs '2 3 4 7'
+
+config statistics 'collectd_iwinfo'
+	option enable '1'
+
+config statistics 'collectd_load'
+	option enable '1'
+
+config statistics 'collectd_memory'
+	option enable '1'
+	option HideFree '0'
+	option ValuesAbsolute '1'
+	option ValuesPercentage '0'
+
+config statistics 'collectd_netlink'
+	option enable '0'
+	option IgnoreSelected '0'
+	option VerboseInterfaces 'br-lan'
+	option QDiscs 'br-lan'
+
+config statistics 'collectd_nut'
+	option enable '0'
+	list UPS 'myupsname'
+
+config statistics 'collectd_olsrd'
+	option enable '0'
+	option Port '2006'
+	option Host '127.0.0.1'
+
+config statistics 'collectd_openvpn'
+	option enable '0'
+
+config statistics 'collectd_ping'
+	option enable '0'
+	option TTL '127'
+	option Interval '30'
+	option Hosts '127.0.0.1'
+
+config statistics 'collectd_processes'
+	option enable '0'
+	option Processes 'uhttpd dnsmasq dropbear'
+
+config statistics 'collectd_sensors'
+	option enable '0'
+
+config statistics 'collectd_snmp6'
+	option enable '0'
+	option Interfaces 'br-lan'
+	option IgnoreSelected '0'
+
+config statistics 'collectd_splash_leases'
+	option enable '0'
+
+config statistics 'collectd_tcpconns'
+	option enable '0'
+	option ListeningPorts '0'
+	list LocalPorts '22'
+	option AllPortsSummary '0'
+
+config statistics 'collectd_thermal'
+	option enable '0'
+	option IgnoreSelected '0'
+
+config statistics 'collectd_uptime'
+	option enable '0'
+
+package mwan3
+
+config interface 'wan'
+	option enabled '1'
+	list track_ip '223.5.5.5'
+	list track_ip '119.29.29.29'
+	option family 'ipv4'
+	option reliability '1'
+	option count '1'
+	option timeout '2'
+	option interval '5'
+	option down '3'
+	option up '3'
+	option size '56'
+	option max_ttl '60'
+	option check_quality '0'
+
+config interface 'wan2'
+	option enabled '1'
+	list track_ip '223.5.5.5'
+	list track_ip '119.29.29.29'
+	option family 'ipv4'
+	option reliability '1'
+	option count '1'
+	option timeout '2'
+	option interval '5'
+	option down '3'
+	option up '3'
+	option size '56'
+	option max_ttl '60'
+	option check_quality '0'
+
+config member 'wan_m1_w3'
+	option interface 'wan'
+	option metric '1'
+	option weight '3'
+
+config member 'wan2_m2_w1'
+	option interface 'wan2'
+	option metric '2'
+	option weight '1'
+
+config policy 'balanced'
+	list use_member 'wan_m1_w3'
+	list use_member 'wan2_m2_w1'
+	option last_resort 'default'
+
+config policy 'mobile'
+	list use_member 'wan2_m2_w1'
+	option last_resort 'default'
+
+config policy 'telecom'
+	list use_member 'wan_m1_w3'
+	option last_resort 'default'
+
+config policy 'failover'
+	list use_member 'wan_m1_w3'
+	list use_member 'wan2_m2_w1'
+	option last_resort 'unreachable'
+
+config rule 'r_gaming'
+	option src_zone 'lan'
+	option proto 'udp'
+	option dest_port '27015:27030,5000:5010,25565:25575'
+	option use_policy 'mobile'
+
+config rule 'r_remote'
+	option src_zone 'lan'
+	option proto 'tcp'
+	option dest_port '22,3389,5900,32400'
+	option use_policy 'mobile'
+
+config rule 'r_https'
+	option src_zone 'lan'
+	option proto 'tcp'
+	option dest_port '443'
+	option sticky '1'
+	option use_policy 'balanced'
+
+config rule 'r_default'
+	option src_zone 'lan'
+	option dest_ip '0.0.0.0/0'
+	option use_policy 'balanced'
+
+package network
+
+config interface 'loopback'
+	option device 'lo'
+	option proto 'static'
+	option ipaddr '127.0.0.1'
+	option netmask '255.0.0.0'
+
+config interface 'lan'
+	option device 'br-lan'
+	option proto 'static'
+	option ipaddr '192.168.100.254'
+	option netmask '255.255.255.0'
+	option ip6assign '60'
+	list dns '223.5.5.5'
+	list dns '119.29.29.29'
+
+config device
+	option name 'br-lan'
+	option type 'bridge'
+	list ports 'lan4'
+	list ports 'lan5'
+	list ports 'eth1'
+	option stp '1'
+	option igmp_snooping '1'
+
+config interface 'wan'
+	option device 'eth2'
+	option proto 'dhcp'
+	option metric '10'
+
+config interface 'wan2'
+	option device 'lan3'
+	option proto 'pppoe'
+	option metric '20'
+	option ipv6 '0'
+	option username '<REDACTED>'
+	option password '<REDACTED>'
+
+config pppoless 'wan2_lease'
+	list interface 'wan2'
+
+config device
+	option name 'lan3'
+	option type 'ethernet'
+
+config device
+	option name 'lan4'
+	option type 'ethernet'
+
+config device
+	option name 'lan5'
+	option type 'ethernet'
+
+config interface 'tailscale'
+	option proto 'none'
+	option device 'tailscale0'
+	option metric '0'
+
+package rpcd
+
+config rpcd
+	option socket '/var/run/ubus/ubus.sock'
+	option timeout '30'
+
+config login
+	option username '<REDACTED>'
+	option password '<REDACTED>'
+	list read '*'
+	list write '*'
+
+package system
+
+config system
+	option hostname 'Tenda-BE12-Pro'
+	option timezone 'CST-8'
+	option zonename 'Asia/Shanghai'
+	option ttylogin '0'
+	option log_size '64'
+	option urandom_seed '0'
+	option log_proto 'udp'
+	option conloglevel '8'
+
+config timeserver 'ntp'
+	list server '0.openwrt.pool.ntp.org'
+	list server '1.openwrt.pool.ntp.org'
+	list server '2.openwrt.pool.ntp.org'
+	list server '3.openwrt.pool.ntp.org'
+
+package tailscale
+
+config settings 'settings'
+	option log_stderr '1'
+	option log_stdout '1'
+	option port '41641'
+	option state_file '/etc/tailscale/tailscaled.state'
+	option fw_mode 'nftables'
+	list advertise_routes '192.168.100.0/24'
+	option service_enabled '1'
+	option accept_routes '1'
+	option advertise_exit_node '0'
+	option exit_node_allow_lan_access '0'
+	option runwebclient '0'
+	option nosnat '0'
+	option shields_up '0'
+	option ssh '0'
+	option dns_mode 'disabled'
+	option enable_relay '0'
+
+package ubihealthd
+
+config ubi-device 'ubi0'
+	option device '/dev/ubi0'
+	option enable '1'
+
+package ubootenv
+
+package uhttpd
+
+config uhttpd 'main'
+	list listen_http '0.0.0.0:80'
+	list listen_http '[::]:80'
+	list listen_https '0.0.0.0:443'
+	list listen_https '[::]:443'
+	option redirect_https '0'
+	option home '/www'
+	option rfc1918_filter '1'
+	option max_requests '3'
+	option max_connections '100'
+	option cert '/etc/uhttpd.crt'
+	option key '<REDACTED>'
+	option cgi_prefix '/cgi-bin'
+	list lua_prefix '/cgi-bin/luci=/usr/lib/lua/luci/sgi/uhttpd.lua'
+	option script_timeout '60'
+	option network_timeout '30'
+	option http_keepalive '20'
+	option tcp_keepalive '1'
+	option ubus_prefix '/ubus'
+
+config cert 'defaults'
+	option days '397'
+	option key_type 'ec'
+	option bits '2048'
+	option ec_curve 'P-256'
+	option country 'ZZ'
+	option state 'Somewhere'
+	option location 'Unknown'
+	option commonname 'OpenWrt'
+
+package wireless
+
+config wifi-device 'radio0'
+	option type 'mac80211'
+	option path 'soc/11280000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0'
+	option radio '0'
+	option band '2g'
+	option channel '1'
+	option htmode 'EHT20'
+	option country 'CN'
+	option disabled '0'
+
+config wifi-iface 'default_radio0'
+	option device 'radio0'
+	option network 'lan'
+	option mode 'ap'
+	option ssid 'ASUS'
+	option encryption 'psk2'
+	option disabled '0'
+	option key '<REDACTED>'
+
+config wifi-device 'radio1'
+	option type 'mac80211'
+	option path 'soc/11280000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0'
+	option radio '1'
+	option band '5g'
+	option channel '36'
+	option htmode 'EHT160'
+	option country 'AU'
+	option disabled '0'
+	option cell_density '2'
+
+config wifi-iface 'default_radio1'
+	option device 'radio1'
+	option network 'lan'
+	option mode 'ap'
+	option ssid 'ASUS'
+	option encryption 'psk2'
+	option disabled '0'
+	option key '<REDACTED>'
+
+package zerotier
+
+config zerotier 'global'
+	option enabled '0'
+
+config network 'earth'
+	option id '8056c2e21c000001'
+	option allow_managed '1'
+	option allow_global '0'
+	option allow_default '0'
+	option allow_dns '0'
+

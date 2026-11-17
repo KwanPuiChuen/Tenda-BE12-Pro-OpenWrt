@@ -1,0 +1,10 @@
+# /etc/config/argon（实机 2026-11-17）：深色模糊 + Bing 每日壁纸
+config global
+	option primary '#5e72e4'
+	option dark_primary '#483d8b'
+	option blur '10'
+	option blur_dark '10'
+	option transparency '0.5'
+	option transparency_dark '0.5'
+	option mode 'normal'
+	option online_wallpaper 'bing'

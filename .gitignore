@@ -41,3 +41,11 @@ package.json
 !**/public-key.pem
 !.repo-keys-in-repo/
 apk-repo/
+
+# ---- 本地凭据与配置快照（2026-11-17）---------------------------------------
+# preset/secrets.env：真实 PPPoE / WiFi / root 密码，注入固件用
+# preset/backup/：路由器配置快照，sensitive/ 内含节点私钥与密码 hash
+preset/secrets.env
+package/tenda-preset/files/usr/share/tenda/secrets.env
+preset/backup/
+.cache/

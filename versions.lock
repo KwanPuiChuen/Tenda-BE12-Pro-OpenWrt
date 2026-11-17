@@ -83,6 +83,19 @@ THEME_AURORA_REPO=https://github.com/eamonxg/luci-theme-aurora.git
 THEME_AURORA_BRANCH=master
 THEME_AURORA_COMMIT=84c27b66952e6fc4be60128067a6b88bfd34afb5
 
+# ----------------------------------------------------------------------------
+# mwan3（nft 版）— 双 WAN 负载均衡核心
+# ----------------------------------------------------------------------------
+# 官方 feed 的 mwan3 是 iptables 实现，配 fw4 已完全失效（策略不生效，
+# 表现为「流量全走一条线」，日志里却一切正常）。
+# dl12345/mwan3 是 nftables 重写版，专为 openwrt-25.12 维护。
+# ⚠️ 该仓库 Makefile 在根目录 → feeds 的 -mindepth 1 扫不到，
+#    必须由 fetch-extra-packages.sh 直挂 package/mwan3（详见脚本头注释）。
+PKG_NAME_MWAN3=mwan3
+MWAN3_REPO=https://github.com/dl12345/mwan3.git
+MWAN3_BRANCH=openwrt-25.12
+MWAN3_COMMIT=cdd4fc56f4de9ccf56d40d6dc04a5b6a4e5a0ae6
+
 # ============================================================================
 # 自建 apk 源：代理面板
 # -----------------------------------------------------------------------------

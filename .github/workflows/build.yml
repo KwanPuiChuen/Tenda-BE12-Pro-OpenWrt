@@ -308,7 +308,9 @@ jobs:
           FAIL=0
           for p in luci luci-base luci-theme-bootstrap luci-theme-argon \
                    luci-theme-aurora luci-app-argon-config luci-app-frpc \
-                   frpc tenda-preset; do
+                   frpc tenda-preset mwan3 luci-app-mwan3 tailscale \
+                   luci-app-tailscale-community zerotier luci-app-statistics \
+                   luci-app-wol etherwake luci-app-attendedsysupgrade; do
             if grep -qE "^CONFIG_PACKAGE_${p}=y" .config; then
               echo "  ✅ $p"
             else
@@ -323,7 +325,8 @@ jobs:
             echo "  ❌ CONFIG_LUCI_LANG_zh_Hans 未启用"
             FAIL=1
           fi
-          for p in mwan3 passwall sing-box xray; do
+          # mwan3 自 2026-11-17 起属必需包（双 WAN 负载均衡），不再排除
+          for p in passwall sing-box xray; do
             if grep -qE "^CONFIG_PACKAGE_${p}=y" .config; then
               echo "  ❌ $p 不该在镜像里，却进了 .config"
               FAIL=1
