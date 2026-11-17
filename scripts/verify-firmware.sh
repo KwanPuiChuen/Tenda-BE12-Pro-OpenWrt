@@ -570,10 +570,33 @@ EOF
   fi
 fi
 
+# ---- 4.5 mwan3 必须是 nftables 移植版 --------------------------------------
+# 2026-11-17 决策变更：mwan3 由「必须排除」改为「必须包含」
+#   实机 192.168.100.254 的双 WAN 负载均衡（电信:移动 3:1）依赖它，
+#   固件内 /etc/config/mwan3 与 LuCI 菜单都指向它。
+#   对应 build.sh 3.5 段的同一决策；本脚本此前仍留在「必须不存在」清单里，
+#   导致 Run #6 编译全绿却在抽查阶段误报失败。
+#   注意：必须用 dl12345/mwan3 的 nft 移植版（独立 table inet mwan3），
+#   官方 iptables 版与 fw4 冲突，且 sysupgrade 会静默装回官方版。
+echo
+echo "  ${CYN}【mwan3（nft 移植版）】${RST}"
+if [ -d "$R/usr/share/mwan3" ] || [ -x "$R/usr/sbin/mwan3" ]; then
+  ok_ "mwan3 已在镜像里（双 WAN 负载均衡依赖它）"
+  if [ -x "$R/usr/sbin/mwan3ct" ] || [ -x "$R/usr/sbin/mwan3-diag" ]; then
+    ok_ "mwan3 带 nft 移植版特征（mwan3ct / mwan3-diag）"
+  else
+    bad_ "mwan3 缺 nft 移植版特征（无 mwan3ct / mwan3-diag）——疑似官方 iptables 版，与 fw4 冲突"
+  fi
+  [ -e "$R/etc/config/mwan3" ] && ok_ "预置 /etc/config/mwan3 已随包进镜像" \
+    || warn_ "镜像内没有 /etc/config/mwan3（首启由 install-mwan3.sh 生成，可接受）"
+else
+  bad_ "mwan3 不在镜像里 —— 预置 mwan3 配置与负载均衡都会失效"
+fi
+
 # ---- 5. 必须不存在的包 -----------------------------------------------------
 echo
 echo "  ${CYN}【必须不存在】${RST}"
-for pat in mwan3 passwall sing-box openclash xray; do
+for pat in passwall sing-box openclash xray; do
   if [ -d "$R/usr/share/$pat" ] || [ -d "$R/etc/config/$pat" ] \
      || find "$R/etc/uci-defaults" -name "*${pat}*" 2>/dev/null | grep -q .; then
     bad_ "$pat 不该在镜像里，却找到了"
