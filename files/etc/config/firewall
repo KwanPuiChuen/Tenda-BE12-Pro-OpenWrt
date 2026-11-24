@@ -33,6 +33,7 @@ config zone
 	option output 'ACCEPT'
 	option forward 'REJECT'
 	option masq '1'
+	option fullcone '1'
 	option mtu_fix '1'
 	list network 'wan'
 	list network 'wan2'
