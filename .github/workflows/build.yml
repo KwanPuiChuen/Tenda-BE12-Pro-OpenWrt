@@ -279,6 +279,11 @@ jobs:
           ls -1 package/feeds/luci 2>/dev/null | wc -l
 
       # ---------------------------------------------------------------------
+      - name: 集成 SONiC FullCone NAT（Linux 6.12 / nftables / LuCI）
+        run: |
+          bash ./scripts/apply-fullcone.sh "$OPENWRT_SRC"
+
+      # ---------------------------------------------------------------------
       - name: 挂载第三方包到 package/
         run: |
           # ⚠️ 关键：这些仓库的 Makefile 在**根目录**，而 include/scan.mk 用
