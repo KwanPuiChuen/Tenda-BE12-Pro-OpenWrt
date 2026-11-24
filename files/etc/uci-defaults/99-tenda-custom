@@ -338,7 +338,6 @@ apply_base_config() {
 		set firewall.$zwan.output='ACCEPT'
 		set firewall.$zwan.forward='REJECT'
 		set firewall.$zwan.masq='1'
-		set firewall.$zwan.fullcone='1'
 		set firewall.$zwan.mtu_fix='1'
 UCI
 
