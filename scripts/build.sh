@@ -113,6 +113,10 @@ cd "$SRC"
 ./scripts/feeds install frp/frpc || die "官方 frpc 包安装失败"
 ok "feeds 安装完成"
 
+# ---- 2.1 集成 FullCone NAT -------------------------------------------------
+step "集成 SONiC FullCone NAT（内核 / nftables / firewall4 / LuCI）"
+bash "$ROOT/scripts/apply-fullcone.sh" "$SRC" || die "FullCone NAT 集成失败"
+
 # ---- 2.5 挂载第三方包到 package/ -------------------------------------------
 # ⚠️ argon / aurora 主题**不能**走 feeds：
 #    include/scan.mk 用 `find -L feeds/<名字> -mindepth 1 -name Makefile` 扫描，
